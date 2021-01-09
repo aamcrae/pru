@@ -29,7 +29,8 @@ import (
 const (
 	drvMemBase = "/sys/class/uio/uio0/maps/map0/addr"
 	drvMemSize = "/sys/class/uio/uio0/maps/map0/size"
-	drvUIO = "/dev/uio0"
+	drvUioBase = "/dev/uio%d"
+	drvUIO0 = "/dev/uio0"
 )
 
 // versions
@@ -58,16 +59,6 @@ const (
 	am3xxICount = am3xxIRamSize / 4
 )
 
-const nUnits = 2
-
-type Unit struct {
-	iram []uint32
-	ctlReg *uint32
-
-	// Exported fields
-	Ram []byte
-}
-
 type PRU struct {
 	mmapFile *os.File
 	memBase int
@@ -75,6 +66,7 @@ type PRU struct {
 	mem []byte
 	version int
 	units [nUnits]*Unit
+	events [nEvents]*Event
 
 	// Exported fields
 	SharedRam []byte
@@ -82,7 +74,6 @@ type PRU struct {
 }
 
 var pru PRU
-var units [nUnits]Unit
 
 // Open initialises the PRU device
 func Open() (*PRU, error) {
@@ -96,14 +87,14 @@ func Open() (*PRU, error) {
 		if err != nil {
 			return nil, err
 		}
-		f, err := os.OpenFile(drvUIO, os.O_RDWR|os.O_SYNC, 0660)
+		f, err := os.OpenFile(drvUIO0, os.O_RDWR|os.O_SYNC, 0660)
 		if err != nil {
 			return nil, err
 		}
 		pru.mem, err = unix.Mmap(int(f.Fd()), 0, pru.memSize, unix.PROT_READ|unix.PROT_WRITE, unix.MAP_SHARED)
 		if err != nil {
 			f.Close()
-			return nil, fmt.Errorf("%s: %v", drvUIO, err)
+			return nil, fmt.Errorf("%s: %v", drvUIO0, err)
 		}
 		// Determine PRU version (AM18xx or AM33xx)
 		vers := atomic.LoadUint32((* uint32)(unsafe.Pointer(&pru.mem[am3xxIntc])))
@@ -126,14 +117,6 @@ func Open() (*PRU, error) {
 	return &pru, nil
 }
 
-func newUnit(ram, iram, ctl uintptr) (* Unit) {
-	u := new(Unit)
-	u.ctlReg = (* uint32)(unsafe.Pointer(&pru.mem[ctl]))
-	u.Ram =  pru.mem[ram:ram + am3xxRamSize]
-	u.iram = (*(*[am3xxICount]uint32)(unsafe.Pointer(&pru.mem[iram])))[:]
-	return u
-}
-
 func (p *PRU) Unit(u int) (* Unit, error) {
 	if u < 0 || u >= nUnits {
 		return nil, fmt.Errorf("Invalid unit number")
@@ -141,11 +124,17 @@ func (p *PRU) Unit(u int) (* Unit, error) {
 	return p.units[u], nil
 }
 
+func (p *PRU) Event(id int) (* Event, error) {
+	return event(p, id)
+}
+
 func (p *PRU) Close() {
 	if p.mmapFile != nil {
 		unix.Munmap(p.mem)
 		p.mmapFile.Close()
 		p.mmapFile = nil
+		p.units[0] = nil
+		p.units[1] = nil
 	}
 }
 
@@ -180,69 +169,4 @@ func readDriverValue(s string) (int, error) {
 		return -1, fmt.Errorf("%s: no value found", s)
 	}
 	return val, nil
-}
-
-func (u *Unit) Reset() {
-	atomic.StoreUint32(u.ctlReg, 0)
-}
-
-func (u *Unit) Disable() {
-	atomic.StoreUint32(u.ctlReg, 1)
-}
-
-func (u *Unit) Enable() {
-	u.EnableAt(0)
-}
-
-func (u *Unit) EnableAt(addr uint) {
-	atomic.StoreUint32(u.ctlReg, (uint32(addr) << 16) | 2)
-}
-
-func (u *Unit) IsRunning() bool {
-	return (atomic.LoadUint32(u.ctlReg) & (1 << 15)) != 0
-}
-
-func (u *Unit) RunFile(s string) error {
-	return u.RunFileAt(s, 0)
-}
-
-func (u *Unit) RunFileAt(s string, addr uint) error {
-	f, err := os.Open(s)
-	if err != nil {
-		return err
-	}
-	fi, err := f.Stat()
-	if err != nil {
-		return err
-	}
-	if (fi.Size() % 4) != 0 {
-		return fmt.Errorf("length is not 32 bit aligned")
-	}
-	code := make([]uint32, fi.Size() / 4)
-	err = binary.Read(f, pru.Order, code)
-	if err != nil {
-		return err
-	}
-	return u.RunAt(code, addr)
-}
-
-func (u *Unit) Run(code []uint32) error {
-	return u.RunAt(code, 0)
-}
-
-func (u *Unit) RunAt(code []uint32, addr uint) error {
-	if len(code) > am3xxICount {
-		return fmt.Errorf("Program too large")
-	}
-	u.copy(code, u.iram)
-	u.EnableAt(addr)
-	return nil
-}
-
-func (u *Unit) copy(data []uint32, dest []uint32) {
-	u.Disable()
-	// Copy to memory.
-	for i, c := range data {
-		atomic.StoreUint32(&dest[i], c)
-	}
 }

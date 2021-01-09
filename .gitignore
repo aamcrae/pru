@@ -5,6 +5,7 @@
 *.so
 *.dylib
 example/swap/swap
+example/event/event
 
 # Test binary, built with `go test -c`
 *.test
