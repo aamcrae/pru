@@ -102,9 +102,9 @@ func (e *Event) WaitTimeout(tout time.Duration) (int, bool, error) {
 	defer ticker.Stop()
 	select {
 	case v := <-e.evChan:
-		return v, false, nil
+		return v, true, nil
 	case <-ticker.C:
-		return -1, true, nil
+		return -1, false, nil
 	}
 }
 
