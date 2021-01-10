@@ -16,15 +16,15 @@ package pru
 
 const (
 	nSysEvents = 64
-	nHostInts = 10
-	nChan = 10
+	nHostInts  = 10
+	nChan      = 10
 )
 
 // IntConfig contains the configuration mappings for the interrupt controller.
 type IntConfig struct {
 	sysevEnabled uint64
-	sysev2chan map[byte]byte
-	chan2hint map[byte]byte
+	sysev2chan   map[byte]byte
+	chan2hint    map[byte]byte
 }
 
 var DefaultIntConfig *IntConfig
@@ -40,29 +40,29 @@ func init() {
 	}
 	for i = 0; i < 10; i++ {
 		ic.EnableSysEvent(i + 16)
-		ic.SysEvent2Channel(i + 16, i)
+		ic.SysEvent2Channel(i+16, i)
 	}
 	DefaultIntConfig = ic
 }
 
-func NewIntConfig() (* IntConfig) {
+func NewIntConfig() *IntConfig {
 	ic := new(IntConfig)
 	ic.sysev2chan = make(map[byte]byte)
 	ic.chan2hint = make(map[byte]byte)
 	return ic
 }
 
-func (ic* IntConfig) EnableSysEvent(n uint) (*IntConfig) {
-	ic.sysevEnabled |= 1 << uint(n % nSysEvents)
+func (ic *IntConfig) EnableSysEvent(n uint) *IntConfig {
+	ic.sysevEnabled |= 1 << uint(n%nSysEvents)
 	return ic
 }
 
-func (ic* IntConfig) SysEvent2Channel(s, c uint) (*IntConfig) {
-	ic.sysev2chan[byte(s % nSysEvents)] = byte(c % nChan)
+func (ic *IntConfig) SysEvent2Channel(s, c uint) *IntConfig {
+	ic.sysev2chan[byte(s%nSysEvents)] = byte(c % nChan)
 	return ic
 }
 
-func (ic* IntConfig) Channel2Interrupt(c, h uint) (*IntConfig) {
-	ic.chan2hint[byte(c % nChan)] = byte(h % nHostInts)
+func (ic *IntConfig) Channel2Interrupt(c, h uint) *IntConfig {
+	ic.chan2hint[byte(c%nChan)] = byte(h % nHostInts)
 	return ic
 }

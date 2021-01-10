@@ -59,27 +59,27 @@ const (
 	am3xxICount        = am3xxIRamSize / 4
 
 	// Interrupt controller register offsets
-	rREVID = 0x20000
-	rCR = 0x20004
-	rGER = 0x20010
-	rGNLR = 0x2001C
-	rSISR = 0x20020
-	rSICR = 0x20024
-	rEISR = 0x20028
-	rEICR = 0x2002C
-	rHIEISR = 0x20034
-	rHIDISR = 0x20038
-	rGPIR = 0x20080
-	rSECR0 = 0x20280
-	rSECR1 = 0x20284
-	rESR0 = 0x20300
-	rESR1 = 0x20304
+	rREVID   = 0x20000
+	rCR      = 0x20004
+	rGER     = 0x20010
+	rGNLR    = 0x2001C
+	rSISR    = 0x20020
+	rSICR    = 0x20024
+	rEISR    = 0x20028
+	rEICR    = 0x2002C
+	rHIEISR  = 0x20034
+	rHIDISR  = 0x20038
+	rGPIR    = 0x20080
+	rSECR0   = 0x20280
+	rSECR1   = 0x20284
+	rESR0    = 0x20300
+	rESR1    = 0x20304
 	rCMRBase = 0x20400
 	rHMRBase = 0x20800
-	rSIPR0 = 0x20D00
-	rSIPR1 = 0x20D04
-	rSITR0 = 0x20D80
-	rSITR1 = 0x20D84
+	rSIPR0   = 0x20D00
+	rSIPR1   = 0x20D04
+	rSITR0   = 0x20D80
+	rSITR1   = 0x20D84
 )
 
 type PRU struct {
@@ -99,7 +99,7 @@ type PRU struct {
 var pru PRU
 
 func init() {
-  // Init the default interrupt controller config.
+	// Init the default interrupt controller config.
 }
 
 // Open initialises the PRU device
@@ -164,14 +164,14 @@ func (p *PRU) IntConfigure(ic *IntConfig) error {
 	p.wr(rSIPR0, 0xFFFFFFFF)
 	p.wr(rSIPR1, 0xFFFFFFFF)
 	// Init the CMR (Channel Map Registers)
-	var cmr [nSysEvents/4]uint32
+	var cmr [nSysEvents / 4]uint32
 	for se, c := range ic.sysev2chan {
 		cmr[se/4] |= uint32(c) << ((se % 4) * 8)
 	}
 	p.copy(cmr[:], rCMRBase)
 	// Init the HMR (Host Interrupt Map Registers)
 	var hier [nHostInts]bool
-	var hmr [(nHostInts + 3)/4]uint32
+	var hmr [(nHostInts + 3) / 4]uint32
 	for ch, h := range ic.chan2hint {
 		hmr[ch/4] |= uint32(h) << ((ch % 4) * 8)
 		hier[h] = true
