@@ -125,7 +125,7 @@ func (p *PRU) Unit(u int) (* Unit, error) {
 }
 
 func (p *PRU) Event(id int) (* Event, error) {
-	return event(p, id)
+	return newEvent(p, id)
 }
 
 func (p *PRU) Close() {

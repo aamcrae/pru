@@ -16,12 +16,9 @@ package main
 
 import (
 	"log"
-	"time"
 
 	"github.com/aamcrae/pru"
 )
-const W1 = 0xDEADBEEF
-const W2 = 0xCAFEF00D
 
 func main() {
 	p, err := pru.Open()
@@ -29,29 +26,17 @@ func main() {
 		log.Fatalf("%s", err)
 	}
 	log.Printf("Description: %s", p.Description())
-	u, err := p.Unit(0)
 	if err != nil {
 		log.Fatalf("%s", err)
 	}
-	_, err = p.Event(1)
+	e, err := p.Event(1)
 	if err != nil {
 		log.Fatalf("%s", err)
 	}
-	log.Printf("RAM %p, size is %d, shared RAM size = %d", &u.Ram[0], len(u.Ram), len(p.SharedRam))
-	p.Order.PutUint32(u.Ram[0:], W1)
-	p.Order.PutUint32(u.Ram[4:], W2)
-	err = u.RunFile("prucode.bin")
-	if err != nil {
-		log.Fatalf("%s", err)
-	}
-	for i := 1; i < 1000; i++ {
-		time.Sleep(time.Millisecond)
-		if !u.IsRunning() {
-			log.Printf("Program has completed (time %d ms)", i)
-			log.Printf("Wrote 0x%x and 0x%x", uint32(W1), uint32(W2))
-			log.Printf("Read  0x%x and 0x%x", p.Order.Uint32(u.Ram[0:]), p.Order.Uint32(u.Ram[4:]))
-			break
-		}
-	}
+	e.SetHandler(func(v int) {
+		log.Printf("Handler called, val = %d", v)
+	})
+	e.ClearHandler()
+	e.Close()
 	p.Close()
 }
