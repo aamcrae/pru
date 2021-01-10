@@ -33,22 +33,21 @@ func main() {
 	if err != nil {
 		log.Fatalf("%s", err)
 	}
-	e, err := p.Event(0)
+	for i := 0; i < 8; i++ {
+		e, err := p.Event(i)
+		if err != nil {
+			log.Fatalf("%s", err)
+		}
+		e.SetHandler(func(id int) func(int) {
+			return func(v int) {
+				log.Printf("Handler for id %d, val = %d", id, v)
+			}
+		}(i))
+	}
+	err = u.RunFile("pruhand.bin")
 	if err != nil {
 		log.Fatalf("%s", err)
 	}
-	err = u.RunFile("pruevent.bin")
-	if err != nil {
-		log.Fatalf("%s", err)
-	}
-	v, ok, err := e.WaitTimeout(time.Second)
-	if err != nil {
-		log.Fatalf("%s", err)
-	}
-	if !ok {
-		log.Printf("Event timed out!")
-	} else {
-		log.Printf("Event received: %d", v)
-	}
+	time.Sleep(time.Second * 2)
 	p.Close()
 }

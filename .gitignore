@@ -6,6 +6,7 @@
 *.dylib
 examples/swap/swap
 examples/event/event
+examples/handler/handler
 
 # Test binary, built with `go test -c`
 *.test
