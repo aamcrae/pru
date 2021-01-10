@@ -22,6 +22,7 @@ import (
 
 const nUnits = 2
 
+// Unit represents one PRU (core) of the PRU-ICSS subsystem
 type Unit struct {
 	iram   uintptr
 	ctlReg uintptr
@@ -30,6 +31,7 @@ type Unit struct {
 	Ram []byte
 }
 
+// newUnit initialises the unit's fields
 func newUnit(ram, iram, ctl uintptr) *Unit {
 	u := new(Unit)
 	u.ctlReg = ctl
@@ -38,30 +40,40 @@ func newUnit(ram, iram, ctl uintptr) *Unit {
 	return u
 }
 
+// Reset resets the PRU
 func (u *Unit) Reset() {
 	pru.wr(u.ctlReg, 0)
 }
 
+// Disable disables the PRU
 func (u *Unit) Disable() {
 	pru.wr(u.ctlReg, 1)
 }
 
+// Enable enables the PRU
 func (u *Unit) Enable() {
 	u.EnableAt(0)
 }
 
+// EnableAt enables the PRU and sets the starting execution address.
+// The address is specified as the instruction word, not the byte offset i.e a value
+// of 10 will begin execution at the 10th instruction word (byte offset of 40 in the IRAM).
 func (u *Unit) EnableAt(addr uint) {
 	pru.wr(u.ctlReg, (uint32(addr)<<16)|2)
 }
 
+// IsRunning returns true if the PRU is enabled and running.
 func (u *Unit) IsRunning() bool {
 	return (pru.rd(u.ctlReg) & (1 << 15)) != 0
 }
 
+// Load and execute the program from the file specified.
 func (u *Unit) RunFile(s string) error {
 	return u.RunFileAt(s, 0)
 }
 
+// Load and execute the program from the file specified and begin
+// execution at the address specified.
 func (u *Unit) RunFileAt(s string, addr uint) error {
 	f, err := os.Open(s)
 	if err != nil {
@@ -82,21 +94,20 @@ func (u *Unit) RunFileAt(s string, addr uint) error {
 	return u.RunAt(code, addr)
 }
 
+// Run loads the PRU code into the IRAM and enables the PRU.
 func (u *Unit) Run(code []uint32) error {
 	return u.RunAt(code, 0)
 }
 
+// Run loads the PRU code into the IRAM and enables the PRU to
+// begin execution at the address indicated.
 func (u *Unit) RunAt(code []uint32, addr uint) error {
 	if len(code) > am3xxICount {
 		return fmt.Errorf("Program too large")
 	}
 	u.Disable()
 	// Copy to IRAM.
-	dest := u.iram
-	for _, c := range code {
-		pru.wr(dest, c)
-		dest += 4
-	}
+	pru.copy(code, u.iram)
 	u.EnableAt(addr)
 	return nil
 }

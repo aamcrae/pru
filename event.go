@@ -25,6 +25,7 @@ const nEvents = 8
 
 // Event contains the data required to manage one event device.
 type Event struct {
+	id                int
 	file              *os.File
 	handlerRegistered bool
 	evChan            chan int
@@ -47,6 +48,7 @@ func newEvent(p *PRU, id int) (*Event, error) {
 		}
 		e.evChan = make(chan int, 50)
 		e.file = f
+		e.id = id
 		p.events[id] = e
 		go e.eventReader()
 	}
@@ -58,6 +60,7 @@ func (e *Event) Close() {
 	e.ClearHandler()
 	close(e.evChan)
 	e.file.Close()
+	pru.events[e.id] = nil
 }
 
 // SetHandler installs an asynch handler invoked when events are

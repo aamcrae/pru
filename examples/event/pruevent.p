@@ -17,12 +17,11 @@
 
 ;
 Start:
-  MOV r8, 0
-; Load first 2 32 bit values
-  LBBO r0, r8, 0, 8
-; switch values
-  MOV r2,r1
-  MOV r3,r0
-; store switched values
-  SBBO r2, r8, 0, 8
+  MOV r31.b0, (0x20|2)
+  MOV r31.b0, (0x20|3)
+  MOV r31.b0, (0x20|4)
+  MOV r31.b0, (0x20|5)
+  MOV r31.b0, (0x20|6)
+  MOV r31.b0, (0x20|8)
+  MOV r31.b0, (0x20|9)
   HALT

@@ -70,6 +70,16 @@ const (
 	rHIEISR = 0x20034
 	rHIDISR = 0x20038
 	rGPIR = 0x20080
+	rSECR0 = 0x20280
+	rSECR1 = 0x20284
+	rESR0 = 0x20300
+	rESR1 = 0x20304
+	rCMRBase = 0x20400
+	rHMRBase = 0x20800
+	rSIPR0 = 0x20D00
+	rSIPR1 = 0x20D04
+	rSITR0 = 0x20D80
+	rSITR1 = 0x20D84
 )
 
 type PRU struct {
@@ -85,12 +95,6 @@ type PRU struct {
 	SharedRam []byte
 	Order     binary.ByteOrder
 }
-
-// IntConfig contains the configuration mappings for the interrupt controller.
-type IntConfig struct {
-}
-
-var DefaultIntConfig IntConfig
 
 var pru PRU
 
@@ -138,7 +142,7 @@ func Open() (*PRU, error) {
 		p.units[1] = newUnit(am3xxPru1Ram, am3xxPru1Iram, am3xxPru1Ctl)
 		p.mmapFile = f
 		// Assume that the default configuration will not return an error.
-		p.IntConfigure(&DefaultIntConfig)
+		p.IntConfigure(DefaultIntConfig)
 	}
 	return p, nil
 }
@@ -155,6 +159,40 @@ func (p *PRU) Event(id int) (*Event, error) {
 }
 
 func (p *PRU) IntConfigure(ic *IntConfig) error {
+	// Disable global interrupts
+	p.wr(rGER, 0)
+	p.wr(rSIPR0, 0xFFFFFFFF)
+	p.wr(rSIPR1, 0xFFFFFFFF)
+	// Init the CMR (Channel Map Registers)
+	var cmr [nSysEvents/4]uint32
+	for se, c := range ic.sysev2chan {
+		cmr[se/4] |= uint32(c) << ((se % 4) * 8)
+	}
+	p.copy(cmr[:], rCMRBase)
+	// Init the HMR (Host Interrupt Map Registers)
+	var hier [nHostInts]bool
+	var hmr [(nHostInts + 3)/4]uint32
+	for ch, h := range ic.chan2hint {
+		hmr[ch/4] |= uint32(h) << ((ch % 4) * 8)
+		hier[h] = true
+	}
+	p.copy(hmr[:], rHMRBase)
+	p.wr(rSITR0, 0)
+	p.wr(rSITR1, 0)
+	// Init the system interrupts
+	m0 := uint32(ic.sysevEnabled)
+	m1 := uint32(ic.sysevEnabled >> 32)
+	p.wr(rESR0, m0)
+	p.wr(rSECR0, m0)
+	p.wr(rESR1, m1)
+	p.wr(rSECR1, m1)
+	for i, hset := range hier {
+		if hset {
+			p.wr(rHIEISR, uint32(i))
+		}
+	}
+	// Re-enable interrupts globally.
+	p.wr(rGER, 1)
 	return nil
 }
 
@@ -196,6 +234,13 @@ func (p *PRU) rd(offs uintptr) uint32 {
 
 func (p *PRU) wr(offs uintptr, v uint32) {
 	atomic.StoreUint32((*uint32)(unsafe.Pointer(&p.mem[offs])), v)
+}
+
+func (p *PRU) copy(src []uint32, dst uintptr) {
+	for _, c := range src {
+		pru.wr(dst, c)
+		dst += 4
+	}
 }
 
 func readDriverValue(s string) (int, error) {

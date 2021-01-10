@@ -16,6 +16,7 @@ package main
 
 import (
 	"log"
+	"time"
 
 	"github.com/aamcrae/pru"
 )
@@ -29,14 +30,25 @@ func main() {
 	if err != nil {
 		log.Fatalf("%s", err)
 	}
-	e, err := p.Event(1)
+	u, err := p.Unit(0)
 	if err != nil {
 		log.Fatalf("%s", err)
 	}
-	e.SetHandler(func(v int) {
-		log.Printf("Handler called, val = %d", v)
-	})
-	e.ClearHandler()
-	e.Close()
+	for i := 0; i < 8; i++ {
+		e, err := p.Event(i)
+		if err != nil {
+			log.Fatalf("%s", err)
+		}
+		e.SetHandler(func(id int) func(int) {
+			return func(v int) {
+				log.Printf("Handler for id %d, val = %d", id, v)
+			}
+		}(i))
+	}
+	err = u.RunFile("prucode.bin")
+	if err != nil {
+		log.Fatalf("%s", err)
+	}
+	time.Sleep(time.Second * 5)
 	p.Close()
 }
