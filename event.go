@@ -25,16 +25,16 @@ const nEvents = 8
 
 // Event contains the data required to manage one event device.
 type Event struct {
-	file *os.File
+	file              *os.File
 	handlerRegistered bool
-	evChan chan int
-	hStop chan chan int
+	evChan            chan int
+	hStop             chan chan int
 
 	// Exported fields
 }
 
 // newEvent initialises the Event structure for the event device unit id.
-func newEvent(p *PRU, id int) (* Event, error) {
+func newEvent(p *PRU, id int) (*Event, error) {
 	if id < 0 || id >= nEvents {
 		return nil, fmt.Errorf("Invalid event number")
 	}
@@ -90,7 +90,7 @@ func (e *Event) Wait() (int, error) {
 	if e.handlerRegistered {
 		return 0, fmt.Errorf("Handler registered, cannot use Wait")
 	}
-	return <- e.evChan, nil
+	return <-e.evChan, nil
 }
 
 // WaitTimeout reads the event device channel, returning if the timeout expires.
@@ -101,9 +101,9 @@ func (e *Event) WaitTimeout(tout time.Duration) (int, bool, error) {
 	ticker := time.NewTicker(tout)
 	defer ticker.Stop()
 	select {
-	case v := <- e.evChan:
+	case v := <-e.evChan:
 		return v, false, nil
-	case <- ticker.C:
+	case <-ticker.C:
 		return -1, true, nil
 	}
 }

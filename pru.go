@@ -30,7 +30,7 @@ const (
 	drvMemBase = "/sys/class/uio/uio0/maps/map0/addr"
 	drvMemSize = "/sys/class/uio/uio0/maps/map0/size"
 	drvUioBase = "/dev/uio%d"
-	drvUIO0 = "/dev/uio0"
+	drvUIO0    = "/dev/uio0"
 )
 
 // versions
@@ -40,12 +40,12 @@ const (
 )
 
 const (
-    // AM3xx
+	// AM3xx
 	// Memory offsets
 	am3xxPru0Ram   = 0x00000000
 	am3xxPru1Ram   = 0x00002000
 	am3xxSharedRam = 0x00010000
-	am3xxIntc       = 0x00020000
+	am3xxIntc      = 0x00020000
 	am3xxPru0Ctl   = 0x00022000
 	am3xxPru0Dbg   = 0x00022400
 	am3xxPru1Ctl   = 0x00024000
@@ -53,24 +53,24 @@ const (
 	am3xxPru0Iram  = 0x00034000
 	am3xxPru1Iram  = 0x00038000
 	// Memory sizes
-	am3xxRamSize = 8 * 1024
+	am3xxRamSize       = 8 * 1024
 	am3xxSharedRamSize = 12 * 1024
-	am3xxIRamSize = 8 * 1024
-	am3xxICount = am3xxIRamSize / 4
+	am3xxIRamSize      = 8 * 1024
+	am3xxICount        = am3xxIRamSize / 4
 )
 
 type PRU struct {
 	mmapFile *os.File
-	memBase int
-	memSize int
-	mem []byte
-	version int
-	units [nUnits]*Unit
-	events [nEvents]*Event
+	memBase  int
+	memSize  int
+	mem      []byte
+	version  int
+	units    [nUnits]*Unit
+	events   [nEvents]*Event
 
 	// Exported fields
 	SharedRam []byte
-	Order binary.ByteOrder
+	Order     binary.ByteOrder
 }
 
 var pru PRU
@@ -97,7 +97,7 @@ func Open() (*PRU, error) {
 			return nil, fmt.Errorf("%s: %v", drvUIO0, err)
 		}
 		// Determine PRU version (AM18xx or AM33xx)
-		vers := atomic.LoadUint32((* uint32)(unsafe.Pointer(&pru.mem[am3xxIntc])))
+		vers := atomic.LoadUint32((*uint32)(unsafe.Pointer(&pru.mem[am3xxIntc])))
 		switch vers {
 		case 0x00a9824e:
 			pru.Order = binary.BigEndian
@@ -109,7 +109,7 @@ func Open() (*PRU, error) {
 			f.Close()
 			return nil, fmt.Errorf("Unknown PRU version: 0x%08x", vers)
 		}
-		pru.SharedRam = pru.mem[am3xxSharedRam:am3xxSharedRam + am3xxSharedRamSize]
+		pru.SharedRam = pru.mem[am3xxSharedRam : am3xxSharedRam+am3xxSharedRamSize]
 		pru.units[0] = newUnit(am3xxPru0Ram, am3xxPru0Iram, am3xxPru0Ctl)
 		pru.units[1] = newUnit(am3xxPru1Ram, am3xxPru1Iram, am3xxPru1Ctl)
 		pru.mmapFile = f
@@ -117,14 +117,14 @@ func Open() (*PRU, error) {
 	return &pru, nil
 }
 
-func (p *PRU) Unit(u int) (* Unit, error) {
+func (p *PRU) Unit(u int) (*Unit, error) {
 	if u < 0 || u >= nUnits {
 		return nil, fmt.Errorf("Invalid unit number")
 	}
 	return p.units[u], nil
 }
 
-func (p *PRU) Event(id int) (* Event, error) {
+func (p *PRU) Event(id int) (*Event, error) {
 	return newEvent(p, id)
 }
 
@@ -135,6 +135,12 @@ func (p *PRU) Close() {
 		p.mmapFile = nil
 		p.units[0] = nil
 		p.units[1] = nil
+		for i, e := range p.events {
+			if e != nil {
+				e.Close()
+				p.events[i] = nil
+			}
+		}
 	}
 }
 

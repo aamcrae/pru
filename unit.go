@@ -25,17 +25,17 @@ import (
 const nUnits = 2
 
 type Unit struct {
-	iram []uint32
+	iram   []uint32
 	ctlReg *uint32
 
 	// Exported fields
 	Ram []byte
 }
 
-func newUnit(ram, iram, ctl uintptr) (* Unit) {
+func newUnit(ram, iram, ctl uintptr) *Unit {
 	u := new(Unit)
-	u.ctlReg = (* uint32)(unsafe.Pointer(&pru.mem[ctl]))
-	u.Ram =  pru.mem[ram:ram + am3xxRamSize]
+	u.ctlReg = (*uint32)(unsafe.Pointer(&pru.mem[ctl]))
+	u.Ram = pru.mem[ram : ram+am3xxRamSize]
 	u.iram = (*(*[am3xxICount]uint32)(unsafe.Pointer(&pru.mem[iram])))[:]
 	return u
 }
@@ -53,7 +53,7 @@ func (u *Unit) Enable() {
 }
 
 func (u *Unit) EnableAt(addr uint) {
-	atomic.StoreUint32(u.ctlReg, (uint32(addr) << 16) | 2)
+	atomic.StoreUint32(u.ctlReg, (uint32(addr)<<16)|2)
 }
 
 func (u *Unit) IsRunning() bool {
@@ -76,7 +76,7 @@ func (u *Unit) RunFileAt(s string, addr uint) error {
 	if (fi.Size() % 4) != 0 {
 		return fmt.Errorf("length is not 32 bit aligned")
 	}
-	code := make([]uint32, fi.Size() / 4)
+	code := make([]uint32, fi.Size()/4)
 	err = binary.Read(f, pru.Order, code)
 	if err != nil {
 		return err

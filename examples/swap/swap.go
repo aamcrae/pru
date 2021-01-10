@@ -20,6 +20,7 @@ import (
 
 	"github.com/aamcrae/pru"
 )
+
 const W1 = 0xDEADBEEF
 const W2 = 0xCAFEF00D
 
