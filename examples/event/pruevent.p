@@ -17,5 +17,6 @@
 
 ;
 Start:
-  MOV r31.b0, (0x20|2)
+  ; Send pru interrupt 0
+  MOV r31.b0, 0x20
   HALT
