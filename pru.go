@@ -57,6 +57,19 @@ const (
 	am3xxSharedRamSize = 12 * 1024
 	am3xxIRamSize      = 8 * 1024
 	am3xxICount        = am3xxIRamSize / 4
+
+	// Interrupt controller register offsets
+	rREVID = 0x20000
+	rCR = 0x20004
+	rGER = 0x20010
+	rGNLR = 0x2001C
+	rSISR = 0x20020
+	rSICR = 0x20024
+	rEISR = 0x20028
+	rEICR = 0x2002C
+	rHIEISR = 0x20034
+	rHIDISR = 0x20038
+	rGPIR = 0x20080
 )
 
 type PRU struct {
@@ -73,17 +86,28 @@ type PRU struct {
 	Order     binary.ByteOrder
 }
 
+// IntConfig contains the configuration mappings for the interrupt controller.
+type IntConfig struct {
+}
+
+var DefaultIntConfig IntConfig
+
 var pru PRU
+
+func init() {
+  // Init the default interrupt controller config.
+}
 
 // Open initialises the PRU device
 func Open() (*PRU, error) {
-	if pru.mmapFile == nil {
+	p := &pru
+	if p.mmapFile == nil {
 		var err error
-		pru.memBase, err = readDriverValue(drvMemBase)
+		p.memBase, err = readDriverValue(drvMemBase)
 		if err != nil {
 			return nil, err
 		}
-		pru.memSize, err = readDriverValue(drvMemSize)
+		p.memSize, err = readDriverValue(drvMemSize)
 		if err != nil {
 			return nil, err
 		}
@@ -91,30 +115,32 @@ func Open() (*PRU, error) {
 		if err != nil {
 			return nil, err
 		}
-		pru.mem, err = unix.Mmap(int(f.Fd()), 0, pru.memSize, unix.PROT_READ|unix.PROT_WRITE, unix.MAP_SHARED)
+		p.mem, err = unix.Mmap(int(f.Fd()), 0, p.memSize, unix.PROT_READ|unix.PROT_WRITE, unix.MAP_SHARED)
 		if err != nil {
 			f.Close()
 			return nil, fmt.Errorf("%s: %v", drvUIO0, err)
 		}
 		// Determine PRU version (AM18xx or AM33xx)
-		vers := atomic.LoadUint32((*uint32)(unsafe.Pointer(&pru.mem[am3xxIntc])))
+		vers := p.rd(rREVID)
 		switch vers {
 		case 0x00a9824e:
-			pru.Order = binary.BigEndian
-			pru.version = am33xx
+			p.Order = binary.BigEndian
+			p.version = am33xx
 		case 0x4E82A900:
-			pru.Order = binary.LittleEndian
-			pru.version = am33xx
+			p.Order = binary.LittleEndian
+			p.version = am33xx
 		default:
 			f.Close()
 			return nil, fmt.Errorf("Unknown PRU version: 0x%08x", vers)
 		}
-		pru.SharedRam = pru.mem[am3xxSharedRam : am3xxSharedRam+am3xxSharedRamSize]
-		pru.units[0] = newUnit(am3xxPru0Ram, am3xxPru0Iram, am3xxPru0Ctl)
-		pru.units[1] = newUnit(am3xxPru1Ram, am3xxPru1Iram, am3xxPru1Ctl)
-		pru.mmapFile = f
+		p.SharedRam = p.mem[am3xxSharedRam : am3xxSharedRam+am3xxSharedRamSize]
+		p.units[0] = newUnit(am3xxPru0Ram, am3xxPru0Iram, am3xxPru0Ctl)
+		p.units[1] = newUnit(am3xxPru1Ram, am3xxPru1Iram, am3xxPru1Ctl)
+		p.mmapFile = f
+		// Assume that the default configuration will not return an error.
+		p.IntConfigure(&DefaultIntConfig)
 	}
-	return &pru, nil
+	return p, nil
 }
 
 func (p *PRU) Unit(u int) (*Unit, error) {
@@ -126,6 +152,10 @@ func (p *PRU) Unit(u int) (*Unit, error) {
 
 func (p *PRU) Event(id int) (*Event, error) {
 	return newEvent(p, id)
+}
+
+func (p *PRU) IntConfigure(ic *IntConfig) error {
+	return nil
 }
 
 func (p *PRU) Close() {
@@ -158,6 +188,14 @@ func (p *PRU) Description() string {
 		fmt.Fprint(&s, " Big endian")
 	}
 	return s.String()
+}
+
+func (p *PRU) rd(offs uintptr) uint32 {
+	return atomic.LoadUint32((*uint32)(unsafe.Pointer(&p.mem[offs])))
+}
+
+func (p *PRU) wr(offs uintptr, v uint32) {
+	atomic.StoreUint32((*uint32)(unsafe.Pointer(&p.mem[offs])), v)
 }
 
 func readDriverValue(s string) (int, error) {

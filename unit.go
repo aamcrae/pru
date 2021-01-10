@@ -18,15 +18,13 @@ import (
 	"encoding/binary"
 	"fmt"
 	"os"
-	"sync/atomic"
-	"unsafe"
 )
 
 const nUnits = 2
 
 type Unit struct {
-	iram   []uint32
-	ctlReg *uint32
+	iram   uintptr
+	ctlReg uintptr
 
 	// Exported fields
 	Ram []byte
@@ -34,18 +32,18 @@ type Unit struct {
 
 func newUnit(ram, iram, ctl uintptr) *Unit {
 	u := new(Unit)
-	u.ctlReg = (*uint32)(unsafe.Pointer(&pru.mem[ctl]))
+	u.ctlReg = ctl
 	u.Ram = pru.mem[ram : ram+am3xxRamSize]
-	u.iram = (*(*[am3xxICount]uint32)(unsafe.Pointer(&pru.mem[iram])))[:]
+	u.iram = iram
 	return u
 }
 
 func (u *Unit) Reset() {
-	atomic.StoreUint32(u.ctlReg, 0)
+	pru.wr(u.ctlReg, 0)
 }
 
 func (u *Unit) Disable() {
-	atomic.StoreUint32(u.ctlReg, 1)
+	pru.wr(u.ctlReg, 1)
 }
 
 func (u *Unit) Enable() {
@@ -53,11 +51,11 @@ func (u *Unit) Enable() {
 }
 
 func (u *Unit) EnableAt(addr uint) {
-	atomic.StoreUint32(u.ctlReg, (uint32(addr)<<16)|2)
+	pru.wr(u.ctlReg, (uint32(addr)<<16)|2)
 }
 
 func (u *Unit) IsRunning() bool {
-	return (atomic.LoadUint32(u.ctlReg) & (1 << 15)) != 0
+	return (pru.rd(u.ctlReg) & (1 << 15)) != 0
 }
 
 func (u *Unit) RunFile(s string) error {
@@ -92,15 +90,13 @@ func (u *Unit) RunAt(code []uint32, addr uint) error {
 	if len(code) > am3xxICount {
 		return fmt.Errorf("Program too large")
 	}
-	u.copy(code, u.iram)
+	u.Disable()
+	// Copy to IRAM.
+	dest := u.iram
+	for _, c := range code {
+		pru.wr(dest, c)
+		dest += 4
+	}
 	u.EnableAt(addr)
 	return nil
-}
-
-func (u *Unit) copy(data []uint32, dest []uint32) {
-	u.Disable()
-	// Copy to memory.
-	for i, c := range data {
-		atomic.StoreUint32(&dest[i], c)
-	}
 }
