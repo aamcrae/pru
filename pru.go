@@ -147,11 +147,8 @@ func Open() (*PRU, error) {
 	return p, nil
 }
 
-func (p *PRU) Unit(u int) (*Unit, error) {
-	if u < 0 || u >= nUnits {
-		return nil, fmt.Errorf("Invalid unit number")
-	}
-	return p.units[u], nil
+func (p *PRU) Unit(u int) (* Unit) {
+	return p.units[u]
 }
 
 func (p *PRU) Event(id int) (*Event, error) {

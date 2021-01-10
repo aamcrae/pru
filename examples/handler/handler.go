@@ -29,10 +29,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("%s", err)
 	}
-	u, err := p.Unit(0)
-	if err != nil {
-		log.Fatalf("%s", err)
-	}
+	u := p.Unit(0)
 	for i := 0; i < 8; i++ {
 		e, err := p.Event(i)
 		if err != nil {

@@ -34,10 +34,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("%s", err)
 	}
-	u, err := p.Unit(0)
-	if err != nil {
-		log.Fatalf("%s", err)
-	}
+	u := p.Unit(0)
 	e, err := p.Event(0)
 	if err != nil {
 		log.Fatalf("%s", err)

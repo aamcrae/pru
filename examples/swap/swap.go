@@ -30,10 +30,7 @@ func main() {
 		log.Fatalf("%s", err)
 	}
 	log.Printf("Description: %s", p.Description())
-	u, err := p.Unit(0)
-	if err != nil {
-		log.Fatalf("%s", err)
-	}
+	u := p.Unit(0)
 	log.Printf("RAM %p, size is %d, shared RAM size = %d", &u.Ram[0], len(u.Ram), len(p.SharedRam))
 	p.Order.PutUint32(u.Ram[0:], W1)
 	p.Order.PutUint32(u.Ram[4:], W2)
