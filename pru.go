@@ -147,7 +147,7 @@ func Open() (*PRU, error) {
 	return p, nil
 }
 
-func (p *PRU) Unit(u int) (* Unit) {
+func (p *PRU) Unit(u int) *Unit {
 	return p.units[u]
 }
 
