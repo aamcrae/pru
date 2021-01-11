@@ -14,7 +14,7 @@
 ;
 ; Generate the in-program data by:
 ;   pasm -m prucode.p prucode
-;   ../util/img2go.sh prucode main
+;   ../../util/img2go.sh prucode main
 
 .origin 0
 .entrypoint Start
