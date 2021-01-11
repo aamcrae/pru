@@ -31,13 +31,13 @@ func main() {
 	}
 	u := p.Unit(0)
 	for i := 0; i < 8; i++ {
-		e, err := p.Event(i)
+		s, err := p.Signal(i)
 		if err != nil {
 			log.Fatalf("%s", err)
 		}
-		e.SetHandler(func(id int) func(int) {
+		s.SetHandler(func(id int) func(int) {
 			return func(v int) {
-				log.Printf("Handler for id %d, val = %d", id, v)
+				log.Printf("Handler for signal id %d, val = %d", id, v)
 			}
 		}(i))
 	}

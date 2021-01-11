@@ -91,7 +91,7 @@ type PRU struct {
 	mem      []byte
 	version  int
 	units    [nUnits]*Unit
-	events   [nEvents]*Event
+	signals  [nSignals]*Signal
 	ic       *IntConfig
 
 	// Exported fields
@@ -152,9 +152,9 @@ func (p *PRU) Unit(u int) *Unit {
 	return p.units[u]
 }
 
-// Event returns the event device identified by id.
-func (p *PRU) Event(id int) (*Event, error) {
-	return newEvent(p, id)
+// Signal returns the host interrupt device identified by id.
+func (p *PRU) Signal(id int) (*Signal, error) {
+	return newSignal(p, id)
 }
 
 // SendEvent triggers the system event
@@ -235,10 +235,10 @@ func (p *PRU) Close() {
 		p.mmapFile = nil
 		p.units[0] = nil
 		p.units[1] = nil
-		for i, e := range p.events {
-			if e != nil {
-				e.Close()
-				p.events[i] = nil
+		for i, s := range p.signals {
+			if s != nil {
+				s.Close()
+				p.signals[i] = nil
 			}
 		}
 	}

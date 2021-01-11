@@ -26,7 +26,7 @@ func main() {
 	// Get a reference to PRU core #0
 	u := p.Unit(0)
 	// Get a reference to event device 0
-	ev, _ := p.Event(0)
+	ev, _ := p.Signal(0)
 	// Run program on PRU 0.
 	u.RunFile("testprog.bin")
 	// Upon completion, the program will send a sys event that
@@ -74,20 +74,20 @@ image data and storing it as a array:
 ## Event Handling
 
 The PRU kernel driver fields interrupts from the PRU subsystem and
-presents these to the user space application via a set of event devices.
-The [Event](https://pkg.go.dev/github.com/aamcrae/pru#Event)
-type is used to access and manage these events.
-An event is delivered as an integer value, which is the running count of
-how many of these events have been delivered (this is useful to determine if
-events have been missed).
+presents these to the user space application via a set of devices.
+The [Signal](https://pkg.go.dev/github.com/aamcrae/pru#Signal)
+type is used to access and manage these interrupts.
+A signal is delivered as an integer value, which is the running count of
+how many of these signals have been delivered (this is useful to determine if
+signals have been missed).
 
-The two main ways of accessing the events are:
+The two main ways of accessing the signals are:
  - Using the ```Wait``` or ```WaitTimeout``` methods to synchronously
-wait upon receiving an event ([example](https://github.com/aamcrae/pru/blob/main/examples/event/event.go))
- - Registering an asynchronous handler that is invoked when an event is received ([example](https://github.com/aamcrae/pru/blob/main/examples/handler/handler.go))
+wait upon receiving an signals ([example](https://github.com/aamcrae/pru/blob/main/examples/event/event.go))
+ - Registering an asynchronous handler that is invoked when an signals is received ([example](https://github.com/aamcrae/pru/blob/main/examples/handler/handler.go))
 
 These methods are mutually exclusive - it is not possible to install a handler, and also call ```Wait```
-on the same Event.
+on the same Signal.
 
 ## Interrupt Handling and Configuration
 

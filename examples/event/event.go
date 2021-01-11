@@ -35,7 +35,7 @@ func main() {
 		log.Fatalf("%s", err)
 	}
 	u := p.Unit(0)
-	e, err := p.Event(0)
+	s, err := p.Signal(0)
 	if err != nil {
 		log.Fatalf("%s", err)
 	}
@@ -43,14 +43,14 @@ func main() {
 	if err != nil {
 		log.Fatalf("%s", err)
 	}
-	v, ok, err := e.WaitTimeout(time.Second)
+	v, ok, err := s.WaitTimeout(time.Second)
 	if err != nil {
 		log.Fatalf("%s", err)
 	}
 	if !ok {
-		log.Printf("Event timed out!")
+		log.Printf("Signal timed out!")
 	} else {
-		log.Printf("Event received: %d", v)
+		log.Printf("Signal received, count: %d", v)
 	}
 	p.Close()
 }
