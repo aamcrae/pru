@@ -160,18 +160,18 @@ func (p *PRU) Signal(id int) (*Signal, error) {
 // SendEvent triggers the system event
 func (p *PRU) SendEvent(se uint) {
 	if se < 32 {
-		p.wr(rSRSR0, 1 << se)
+		p.wr(rSRSR0, 1<<se)
 	} else if se < 64 {
-		p.wr(rSRSR1, 1 << (se - 32))
+		p.wr(rSRSR1, 1<<(se-32))
 	}
 }
 
 // ClearEvent resets the system event, and re-enables the associated host interrupt.
 func (p *PRU) ClearEvent(se uint) {
 	if se < 32 {
-		p.wr(rSECR0, 1 << se)
+		p.wr(rSECR0, 1<<se)
 	} else if se < 64 {
-		p.wr(rSECR1, 1 << (se - 32))
+		p.wr(rSECR1, 1<<(se-32))
 	} else {
 		return
 	}

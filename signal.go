@@ -28,7 +28,7 @@ type Signal struct {
 	id                int
 	file              *os.File
 	handlerRegistered bool
-	sigChan            chan int
+	sigChan           chan int
 	hStop             chan chan int
 }
 

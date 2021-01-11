@@ -25,13 +25,13 @@ func main() {
 	p, _ := pru.Open()
 	// Get a reference to PRU core #0
 	u := p.Unit(0)
-	// Get a reference to event device 0
-	ev, _ := p.Signal(0)
+	// Get a reference to interrupt device 0
+	s, _ := p.Signal(0)
 	// Run program on PRU 0.
 	u.RunFile("testprog.bin")
 	// Upon completion, the program will send a sys event that
-	// gets mapped to event device 0.
-	ev.Wait()
+	// gets mapped to interrupt device 0.
+	s.Wait()
 	p.Close()
 }
 ```
@@ -71,12 +71,19 @@ image data and storing it as a array:
 	u := p.Unit(0)
 	u.Run(prucode_img)
 ```
-## Event Handling
+## User-space Signal Handling
 
-The PRU kernel driver fields interrupts from the PRU subsystem and
-presents these to the user space application via a set of devices.
+System events from a range of different sources may be used to trigger
+interrupts. There are 64 possible system events, each of which may be enabled or disabled, and
+which may be triggered by dedicated hardware, the PRU cores, or the main CPU, depending on the system event.
+The system events are mapped to 10 interrupt channels, and these channels may then be mapped to
+10 host interrupts.
+Whilst 10 host interrupts are available, the first 2 are reserved for sending interrupts to the PRU cores
+themselves. The next 8 host interrupts are used to deliver interrupts to the main CPU kernel drivers,
+which then make these available via the device interface to the user space applications.
+
 The [Signal](https://pkg.go.dev/github.com/aamcrae/pru#Signal)
-type is used to access and manage these interrupts.
+type is used to access and manage these interrupts via the device interface presented by the kernel drivers.
 A signal is delivered as an integer value, which is the running count of
 how many of these signals have been delivered (this is useful to determine if
 signals have been missed).
@@ -89,10 +96,8 @@ wait upon receiving an signals ([example](https://github.com/aamcrae/pru/blob/ma
 These methods are mutually exclusive - it is not possible to install a handler, and also call ```Wait```
 on the same Signal.
 
-There are 8 devices ```/dev/uio[0-7]``` that are used to deliver the 8 host interrupts from the PRU subsystem (whilst the
-PRU subsystem defines 10 host interrupts, the first two are reserved for sending interrupts to the PRU cores themselves - it is
-only the last 8 host interrupts that are used to deliver these signals to the kernel drivers, which then make these available via the
-device interface to the user space applications).
+There are 8 devices ```/dev/uio[0-7]``` that are used to interface user-space to the 8 host interrupts that
+are available to the main CPU.
 
 ## Interrupt Handling and Configuration
 
