@@ -76,10 +76,14 @@ image data and storing it as a array:
 The PRU kernel driver fields interrupts from the PRU subsystem and
 presents these to the user space application via a set of event devices.
 The Event type is used to access and manage these events.
+An event is delivered as an integer value, which is the running count of
+how many of these events have been delivered (this is useful to determine if
+events have been missed).
+
 The two main ways of accessing the events are:
  - Using the ```Wait``` or ```WaitTimeout``` methods to synchronously
-wait upon receiving an event.
- - Registering an asynchronous handler that is invoked when an event is received.
+wait upon receiving an event ([example](https://github.com/aamcrae/pru/blob/main/examples/event/event.go))
+ - Registering an asynchronous handler that is invoked when an event is received ([example](https://github.com/aamcrae/pru/blob/main/examples/handler/handler.go))
 
 These methods are mutually exclusive - it is not possible to install a handler, and also call ```Wait```
 on the same Event.
