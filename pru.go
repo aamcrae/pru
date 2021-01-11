@@ -70,6 +70,8 @@ const (
 	rHIEISR  = 0x20034
 	rHIDISR  = 0x20038
 	rGPIR    = 0x20080
+	rSRSR0   = 0x20200
+	rSRSR1   = 0x20204
 	rSECR0   = 0x20280
 	rSECR1   = 0x20284
 	rESR0    = 0x20300
@@ -90,6 +92,7 @@ type PRU struct {
 	version  int
 	units    [nUnits]*Unit
 	events   [nEvents]*Event
+	ic       *IntConfig
 
 	// Exported fields
 	SharedRam []byte
@@ -154,8 +157,37 @@ func (p *PRU) Event(id int) (*Event, error) {
 	return newEvent(p, id)
 }
 
+// SendEvent triggers the system event
+func (p *PRU) SendEvent(se uint) {
+	if se < 32 {
+		p.wr(rSRSR0, 1 << se)
+	} else if se < 64 {
+		p.wr(rSRSR1, 1 << (se - 32))
+	}
+}
+
+// ClearEvent resets the system event, and re-enables the associated host interrupt.
+func (p *PRU) ClearEvent(se uint) {
+	if se < 32 {
+		p.wr(rSECR0, 1 << se)
+	} else if se < 64 {
+		p.wr(rSECR1, 1 << (se - 32))
+	} else {
+		return
+	}
+	// Re-enable the host interrupt.
+	ch, ok := p.ic.sysev2chan[byte(se)]
+	if ok {
+		hi, ok := p.ic.chan2hint[byte(ch)]
+		if ok {
+			p.wr(rHIEISR, uint32(hi))
+		}
+	}
+}
+
 // IntConfigure applies the interrupt controller configuration to the PRU
 func (p *PRU) IntConfigure(ic *IntConfig) error {
+	p.ic = ic
 	// Disable global interrupts
 	p.wr(rGER, 0)
 	p.wr(rSIPR0, 0xFFFFFFFF)
