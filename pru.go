@@ -98,11 +98,8 @@ type PRU struct {
 
 var pru PRU
 
-func init() {
-	// Init the default interrupt controller config.
-}
-
-// Open initialises the PRU device
+// Open initialises the PRU subsystem, and configures the interrupt controller
+// with a default configuration.
 func Open() (*PRU, error) {
 	p := &pru
 	if p.mmapFile == nil {
@@ -147,23 +144,28 @@ func Open() (*PRU, error) {
 	return p, nil
 }
 
+// Unit returns a structure pointer representing a single PRU Core
 func (p *PRU) Unit(u int) *Unit {
 	return p.units[u]
 }
 
+// Event returns the event device identified by id.
 func (p *PRU) Event(id int) (*Event, error) {
 	return newEvent(p, id)
 }
 
+// IntConfigure applies the interrupt controller configuration to the PRU
 func (p *PRU) IntConfigure(ic *IntConfig) error {
 	// Disable global interrupts
 	p.wr(rGER, 0)
 	p.wr(rSIPR0, 0xFFFFFFFF)
 	p.wr(rSIPR1, 0xFFFFFFFF)
 	// Init the CMR (Channel Map Registers)
+	var seEnable uint64
 	var cmr [nSysEvents / 4]uint32
 	for se, c := range ic.sysev2chan {
 		cmr[se/4] |= uint32(c) << ((se % 4) * 8)
+		seEnable |= 1 << se
 	}
 	p.copy(cmr[:], rCMRBase)
 	// Init the HMR (Host Interrupt Map Registers)
@@ -176,9 +178,9 @@ func (p *PRU) IntConfigure(ic *IntConfig) error {
 	p.copy(hmr[:], rHMRBase)
 	p.wr(rSITR0, 0)
 	p.wr(rSITR1, 0)
-	// Init the system interrupts
-	m0 := uint32(ic.sysevEnabled)
-	m1 := uint32(ic.sysevEnabled >> 32)
+	// Enable the system events that are used.
+	m0 := uint32(seEnable)
+	m1 := uint32(seEnable >> 32)
 	p.wr(rESR0, m0)
 	p.wr(rSECR0, m0)
 	p.wr(rESR1, m1)
@@ -193,6 +195,7 @@ func (p *PRU) IntConfigure(ic *IntConfig) error {
 	return nil
 }
 
+// Close deactivates the PRU subsystem, releasing all the resources associated with it.
 func (p *PRU) Close() {
 	if p.mmapFile != nil {
 		unix.Munmap(p.mem)
@@ -209,6 +212,7 @@ func (p *PRU) Close() {
 	}
 }
 
+// Description returns a human readable string describing the PRU
 func (p *PRU) Description() string {
 	var s strings.Builder
 	fmt.Fprint(&s, "PRU")
@@ -225,14 +229,17 @@ func (p *PRU) Description() string {
 	return s.String()
 }
 
+// rd reads one 32 bit word from the shared memory area
 func (p *PRU) rd(offs uintptr) uint32 {
 	return atomic.LoadUint32((*uint32)(unsafe.Pointer(&p.mem[offs])))
 }
 
+// wr writes one 32 bit word to the shared memory area
 func (p *PRU) wr(offs uintptr, v uint32) {
 	atomic.StoreUint32((*uint32)(unsafe.Pointer(&p.mem[offs])), v)
 }
 
+// copy copies the 32 bit data to the shared memory area
 func (p *PRU) copy(src []uint32, dst uintptr) {
 	for _, c := range src {
 		pru.wr(dst, c)
@@ -240,6 +247,9 @@ func (p *PRU) copy(src []uint32, dst uintptr) {
 	}
 }
 
+// readDriverValue opens and reads a string from a device file and decodes
+// the string as an integer. This is used to retrieve device specific
+// parameters from the PRU kernel device driver.
 func readDriverValue(s string) (int, error) {
 	var val int
 	f, err := os.Open(s)
