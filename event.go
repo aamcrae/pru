@@ -97,7 +97,13 @@ func (e *Event) Wait() (int, error) {
 }
 
 // WaitTimeout reads the event device channel, returning if the timeout expires.
-// This cannot be used if a handler has been installed on this event device.
+// This cannot be used if a handler has been installed on this event device e.g
+//  v, ok, err := ev.WaitTimeout(time.Second)
+//  if ok {
+//      // Event received
+//  else {
+//      // Timed out
+//  }
 func (e *Event) WaitTimeout(tout time.Duration) (int, bool, error) {
 	if e.handlerRegistered {
 		return 0, false, fmt.Errorf("Handler registered, cannot use WaitTimeout")
