@@ -8,4 +8,11 @@ This is based on the [beaglebone](https://beagleboard.org/black) [PRU](https://g
 package, which contains reference docs for the PRU subsystem, as well as assembler source etc.
 If custom PRU programs are to be developed, install the pasm assembler from that package.
 
+[Examples](https://github.com/aamcrae/pru/tree/main/examples) are provided that demonstrate
+the API:
+ - [swap](https://github.com/aamcrae/pru/tree/main/examples/swap) - a simple program showing how to access
+the PRU RAM, and to load and run a simple program.
+ - [event](https://github.com/aamcrae/pru/tree/main/examples/event) - a program demonstrating how to use the event processing.
+ - [handler](https://github.com/aamcrae/pru/tree/main/examples/handler) - a program showing how to install an asynch event handler.
+
 This is not an officially supported Google product.
