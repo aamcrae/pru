@@ -38,7 +38,7 @@ type IntConfig struct {
 //
 // Before the PRU is opened, this may be modified
 // to overwrite the default configuration e.g
-// DefaultIntConfig.Clear().EnableSysEvent(23)
+// DefaultIntConfig.Clear().SysEvent2Channel(16, 4).Channel2Interrupt(4, 4)
 var DefaultIntConfig *IntConfig
 
 func init() {
@@ -55,7 +55,7 @@ func init() {
 	}
 }
 
-// NewIntConfig creates and initialises a IntConfig.
+// NewIntConfig creates an empty IntConfig.
 func NewIntConfig() *IntConfig {
 	ic := new(IntConfig)
 	ic.Clear()
@@ -78,11 +78,11 @@ func (ic *IntConfig) SysEvent2Channel(s, c uint) *IntConfig {
 	return ic
 }
 
-// Channel2Interrupt maps the channel to one of the host interrupts.
-// It is recommended to map the channels to interrupts 1:1 i.e
-// channel 1 mapped to host interrupt 1.
+// Channel2Interrupt maps the channel to a host interrupt.
+// It is recommended to map the channels to interrupts as 1:1 i.e
+// channel 1 mapped to host interrupt 1 etc.
 // Multiple channels should not be mapped to a single host interrupt.
-// A channel to host interrupt must be present for the host interrupt to
+// A channel to host interrupt mapping must be present for the host interrupt to
 // be enabled.
 func (ic *IntConfig) Channel2Interrupt(c, h uint) *IntConfig {
 	ic.chan2hint[byte(c%nChan)] = byte(h % nHostInts)

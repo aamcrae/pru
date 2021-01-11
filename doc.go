@@ -21,11 +21,13 @@ The commonly available product with this part is the Beaglebone Black (https://b
 The PRU subsystem includes 2 cores that can be separately controlled, and an event/interrupt
 subsystem that allows the PRU cores and the host CPU to send and receive interrupt driven events.
 
-This package is mostly based on https://github.com/beagleboard/am335x_pru_package
+This package is based on https://github.com/beagleboard/am335x_pru_package
 The repo mentioned above is required in order to build and install the PRU assembler, if
-custom PRU programs are to be loaded and executed.
+custom PRU programs are to be loaded and executed. This repo also contains a number of useful
+reference documents.
 
-Complete documentation is available via README.md, and through godoc.
+Complete documentation is available via https://github.com/aamcrae/pru, and through godoc at
+https://godoc.org/github.com/aamcrae/pru
 
 */
 package pru

@@ -23,15 +23,13 @@ import (
 
 const nEvents = 8
 
-// Event contains the data required to manage one event device.
+// Event represents an event device or event channel.
 type Event struct {
 	id                int
 	file              *os.File
 	handlerRegistered bool
 	evChan            chan int
 	hStop             chan chan int
-
-	// Exported fields
 }
 
 // newEvent initialises the Event structure for the event device unit id.
@@ -64,7 +62,8 @@ func (e *Event) Close() {
 }
 
 // SetHandler installs an asynch handler invoked when events are
-// delivered from the event device.
+// read from the event device. The argument to the handler is the
+// running count of how many events have been sent on this device.
 func (e *Event) SetHandler(f func(int)) {
 	if e.handlerRegistered {
 		e.ClearHandler()
@@ -74,7 +73,7 @@ func (e *Event) SetHandler(f func(int)) {
 	go e.hDispatcher(f)
 }
 
-// ClearHandler stops any currently running handler.
+// ClearHandler removes any currently installed handler for this event device.
 func (e *Event) ClearHandler() {
 	if e.handlerRegistered {
 		// Create a channel to be used to signal when the handler has exited.
@@ -89,6 +88,7 @@ func (e *Event) ClearHandler() {
 }
 
 // Wait reads the event device channel and returns the value once available.
+// This cannot be used if a handler has been installed on this event device.
 func (e *Event) Wait() (int, error) {
 	if e.handlerRegistered {
 		return 0, fmt.Errorf("Handler registered, cannot use Wait")
@@ -97,6 +97,7 @@ func (e *Event) Wait() (int, error) {
 }
 
 // WaitTimeout reads the event device channel, returning if the timeout expires.
+// This cannot be used if a handler has been installed on this event device.
 func (e *Event) WaitTimeout(tout time.Duration) (int, bool, error) {
 	if e.handlerRegistered {
 		return 0, false, fmt.Errorf("Handler registered, cannot use WaitTimeout")
@@ -118,7 +119,7 @@ func (e *Event) hDispatcher(f func(int)) {
 	for {
 		select {
 		case c := <-e.hStop:
-			// Send a value back to signal that the handler is terminating.
+			// Send a value back to signal that the handler has terminated.
 			c <- 0
 			return
 		case v := <-e.evChan:
