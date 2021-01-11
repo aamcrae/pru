@@ -72,14 +72,16 @@ func (u *Unit) Disable() {
 	pru.wr(u.ctlBase+c_CONTROL, ctl_RESET)
 }
 
-// Enable enables the PRU
+// Enable enables the PRU core. If CycleCounter is true, the
+// cycle counter for the PRU core is cleared and enabled.
 func (u *Unit) Enable() {
 	u.EnableAt(0)
 }
 
-// EnableAt enables the PRU and sets the starting execution address.
+// EnableAt enables the PRU core and sets the starting execution address.
 // The address is specified as the instruction word, not the byte offset i.e a value
 // of 10 will begin execution at the 10th instruction word (byte offset of 40 in the IRAM).
+// If CycleCounter is true, the cycle counter for the PRU core is cleared and enabled.
 func (u *Unit) EnableAt(addr uint) {
 	c := (uint32(addr) << 16) | ctl_ENABLE
 	if u.CycleCounter {
@@ -91,6 +93,7 @@ func (u *Unit) EnableAt(addr uint) {
 }
 
 // Counter returns the current cycle counter.
+// This is only valid if CycleCounter has been set true.
 func (u *Unit) Counter() uint32 {
 	return pru.rd(u.ctlBase + c_CYCLE)
 }
