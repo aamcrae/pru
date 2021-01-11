@@ -27,7 +27,7 @@ custom PRU programs are to be loaded and executed. This repo also contains a num
 reference documents.
 
 Complete documentation is available via https://github.com/aamcrae/pru, and through godoc at
-https://godoc.org/github.com/aamcrae/pru
+https://pkg.go.dev/github.com/aamcrae/pru
 
 */
 package pru
