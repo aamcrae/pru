@@ -89,6 +89,11 @@ wait upon receiving an signals ([example](https://github.com/aamcrae/pru/blob/ma
 These methods are mutually exclusive - it is not possible to install a handler, and also call ```Wait```
 on the same Signal.
 
+There are 8 devices ```/dev/uio[0-7]``` that are used to deliver the 8 host interrupts from the PRU subsystem (whilst the
+PRU subsystem defines 10 host interrupts, the first two are reserved for sending interrupts to the PRU cores themselves - it is
+only the last 8 host interrupts that are used to deliver these signals to the kernel drivers, which then make these available via the
+device interface to the user space applications).
+
 ## Interrupt Handling and Configuration
 
 The [PRU Interrupt Controller](https://elinux.org/PRUSSv2_Interrupt_Controller) has a
