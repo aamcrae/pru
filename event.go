@@ -61,7 +61,7 @@ func (e *Event) Close() {
 	pru.events[e.id] = nil
 }
 
-// SetHandler installs an asynch handler invoked when events are
+// SetHandler installs an asynch handler that is invoked when events are
 // read from the event device. The argument to the handler is the
 // running count of how many events have been sent on this device.
 func (e *Event) SetHandler(f func(int)) {

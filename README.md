@@ -75,7 +75,8 @@ image data and storing it as a array:
 
 The PRU kernel driver fields interrupts from the PRU subsystem and
 presents these to the user space application via a set of event devices.
-The Event type is used to access and manage these events.
+The [Event](https://pkg.go.dev/github.com/aamcrae/pru#Event)
+type is used to access and manage these events.
 An event is delivered as an integer value, which is the running count of
 how many of these events have been delivered (this is useful to determine if
 events have been missed).
