@@ -22,19 +22,41 @@ import (
 
 const nUnits = 2
 
+const (
+	// Control registers offset
+	c_CONTROL = 0x00
+	c_STATUS = 0x04
+	c_WAKEUP_EN = 0x08
+	c_CYCLE = 0x0C
+	c_STALL = 0x10
+	c_CTBIR0 = 0x20
+	c_CTBIR1 = 0x24
+	c_CTPPR0 = 0x28
+	c_CTPPR1 = 0x2C
+)
+const (
+	ctl_RESET = 0x0001
+	ctl_ENABLE = 0x0002
+	ctl_SLEEPING = 0x0004
+	ctl_COUNTER_EN = 0x0008
+	ctl_SINGLE_STEP = 0x0100
+	ctl_RUNSTATE = 0x8000
+)
+
 // Unit represents one PRU (core) of the PRU-ICSS subsystem
 type Unit struct {
 	iram   uintptr
-	ctlReg uintptr
+	ctlBase uintptr
 
 	// Exported fields
 	Ram []byte
+	CycleCounter bool // Enable cycle counter
 }
 
 // newUnit initialises the unit's fields
 func newUnit(ram, iram, ctl uintptr) *Unit {
 	u := new(Unit)
-	u.ctlReg = ctl
+	u.ctlBase = ctl
 	u.Ram = pru.mem[ram : ram+am3xxRamSize]
 	u.iram = iram
 	return u
@@ -42,12 +64,12 @@ func newUnit(ram, iram, ctl uintptr) *Unit {
 
 // Reset resets the PRU
 func (u *Unit) Reset() {
-	pru.wr(u.ctlReg, 0)
+	pru.wr(u.ctlBase + c_CONTROL, 0)
 }
 
 // Disable disables the PRU
 func (u *Unit) Disable() {
-	pru.wr(u.ctlReg, 1)
+	pru.wr(u.ctlBase + c_CONTROL, ctl_RESET)
 }
 
 // Enable enables the PRU
@@ -59,12 +81,23 @@ func (u *Unit) Enable() {
 // The address is specified as the instruction word, not the byte offset i.e a value
 // of 10 will begin execution at the 10th instruction word (byte offset of 40 in the IRAM).
 func (u *Unit) EnableAt(addr uint) {
-	pru.wr(u.ctlReg, (uint32(addr)<<16)|2)
+	c := (uint32(addr)<<16)|ctl_ENABLE
+	if u.CycleCounter {
+		c |= ctl_COUNTER_EN
+		// Clear cycle counter
+		pru.wr(u.ctlBase + c_CYCLE, 0)
+	}
+	pru.wr(u.ctlBase + c_CONTROL, c)
+}
+
+// Counter returns the current cycle counter.
+func (u *Unit) Counter() uint32 {
+	return pru.rd(u.ctlBase + c_CYCLE)
 }
 
 // IsRunning returns true if the PRU is enabled and running.
 func (u *Unit) IsRunning() bool {
-	return (pru.rd(u.ctlReg) & (1 << 15)) != 0
+	return (pru.rd(u.ctlBase + c_CONTROL) & ctl_RUNSTATE) != 0
 }
 
 // Load and execute the program from the file specified.
