@@ -21,6 +21,7 @@ import (
 	"os"
 	"strings"
 	"sync/atomic"
+	"time"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -369,4 +370,9 @@ func readDriverValue(s string) (int, error) {
 		return -1, fmt.Errorf("%s: no value found", s)
 	}
 	return val, nil
+}
+
+// Return the number of instruction cycles for the duration specified.
+func Ticks(d time.Duration) int {
+	return int(d.Nanoseconds() * 5)	// 200 MHz instruction rate
 }
