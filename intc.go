@@ -23,11 +23,13 @@ const (
 // IntConfig contains the configuration mappings for the interrupt controller.
 // A configuration is initialised through config methods on this structure e.g:
 //   ic := NewIntConfig()
-//   ic.Channel2Interrupt(2, 2).SysEvent2Channel(16, 2)
+//   ic.Channel2Interrupt(2, 2).Event2Channel(16, 2)
 //   p.IntConfigure(ic)
 type IntConfig struct {
-	sysev2chan map[byte]byte
+	ev2chan    map[byte]byte
 	chan2hint  map[byte]byte
+	hiMask     [nHostInts]uint64 // System event mask for each host interrupt
+    evMask     uint64 // Global mask for system events
 }
 
 // The default interrupt config.
@@ -38,7 +40,7 @@ type IntConfig struct {
 //
 // Before the PRU is opened, this may be modified
 // to overwrite the default configuration e.g
-// DefaultIntConfig.Clear().SysEvent2Channel(16, 4).Channel2Interrupt(4, 4)
+// DefaultIntConfig.Clear().Event2Channel(16, 4).Channel2Interrupt(4, 4)
 var DefaultIntConfig *IntConfig
 
 func init() {
@@ -49,9 +51,7 @@ func init() {
 	var i uint
 	for i = 0; i < nChan; i++ {
 		DefaultIntConfig.Channel2Interrupt(i, i)
-	}
-	for i = 0; i < 10; i++ {
-		DefaultIntConfig.SysEvent2Channel(i+16, i)
+		DefaultIntConfig.Event2Channel(i+16, i)
 	}
 }
 
@@ -64,17 +64,17 @@ func NewIntConfig() *IntConfig {
 
 // Clear resets the configuration
 func (ic *IntConfig) Clear() *IntConfig {
-	ic.sysev2chan = make(map[byte]byte)
+	ic.ev2chan = make(map[byte]byte)
 	ic.chan2hint = make(map[byte]byte)
 	return ic
 }
 
-// SysEvent2Channel maps the system event to one of the 10
+// Event2Channel maps the system event to one of the 10
 // interrupt channels. Multiple system events may be mapped to a single channel,
 // but the same system events should not be mapped to multiple channels.
 // Adding the mapping will enable the system event.
-func (ic *IntConfig) SysEvent2Channel(s, c uint) *IntConfig {
-	ic.sysev2chan[byte(s%nSysEvents)] = byte(c % nChan)
+func (ic *IntConfig) Event2Channel(s, c uint) *IntConfig {
+	ic.ev2chan[byte(s % nSysEvents)] = byte(c % nChan)
 	return ic
 }
 
@@ -85,6 +85,6 @@ func (ic *IntConfig) SysEvent2Channel(s, c uint) *IntConfig {
 // A channel to host interrupt mapping must be present for the host interrupt to
 // be enabled.
 func (ic *IntConfig) Channel2Interrupt(c, h uint) *IntConfig {
-	ic.chan2hint[byte(c%nChan)] = byte(h % nHostInts)
+	ic.chan2hint[byte(c % nChan)] = byte(h % nHostInts)
 	return ic
 }

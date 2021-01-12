@@ -31,7 +31,7 @@ func main() {
 	// Set up just one system event (pr1_pru_mst_intr[0]_intr_req) and map it to channel 2.
 	// Map channel 2 to host interrupt 2 (which appears on event device 0)
 	ic := pru.NewIntConfig()
-	ic.Channel2Interrupt(2, 2).SysEvent2Channel(signal, 2)
+	ic.Channel2Interrupt(2, 2).Event2Channel(signal, 2)
 	p.IntConfigure(ic)
 	if err != nil {
 		log.Fatalf("%s", err)

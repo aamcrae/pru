@@ -141,8 +141,11 @@ func Open() (*PRU, error) {
 		p.units[0] = newUnit(am3xxPru0Ram, am3xxPru0Iram, am3xxPru0Ctl)
 		p.units[1] = newUnit(am3xxPru1Ram, am3xxPru1Iram, am3xxPru1Ctl)
 		p.mmapFile = f
-		// Assume that the default configuration will not return an error.
-		p.IntConfigure(DefaultIntConfig)
+		err = p.IntConfigure(DefaultIntConfig)
+		if err != nil {
+			f.Close()
+			return nil, err
+		}
 	}
 	return p, nil
 }
@@ -159,24 +162,14 @@ func (p *PRU) Signal(id int) (*Signal, error) {
 
 // SendEvent triggers the system event
 func (p *PRU) SendEvent(se uint) {
-	if se < 32 {
-		p.wr(rSRSR0, 1<<se)
-	} else if se < 64 {
-		p.wr(rSRSR1, 1<<(se-32))
-	}
+	p.wr64(rSRSR0, 1 << se)
 }
 
 // ClearEvent resets the system event, and re-enables the associated host interrupt.
 func (p *PRU) ClearEvent(se uint) {
-	if se < 32 {
-		p.wr(rSECR0, 1<<se)
-	} else if se < 64 {
-		p.wr(rSECR1, 1<<(se-32))
-	} else {
-		return
-	}
+	p.wr64(rSECR0, 1 << se)
 	// Re-enable the host interrupt.
-	ch, ok := p.ic.sysev2chan[byte(se)]
+	ch, ok := p.ic.ev2chan[byte(se)]
 	if ok {
 		hi, ok := p.ic.chan2hint[byte(ch)]
 		if ok {
@@ -187,37 +180,47 @@ func (p *PRU) ClearEvent(se uint) {
 
 // IntConfigure applies the interrupt controller configuration to the PRU
 func (p *PRU) IntConfigure(ic *IntConfig) error {
+	// Init event mask for each host interrupt.
+	for i := range ic.hiMask {
+		ic.hiMask[i] = 0
+	}
+	ic.evMask = 0
+	// Validate interrupt config.
+	// All events must map to a host interrupt.
+	var cmr [nSysEvents / 4]uint32
+	for se, c := range ic.ev2chan {
+		cmr[se/4] |= uint32(c) << ((se % 4) * 8)
+		hi, ok := ic.chan2hint[c]
+		if !ok {
+			return fmt.Errorf("chan %d not mapped to host interrupt", c)
+		}
+		ic.hiMask[hi] |= 1 << se
+		ic.evMask |= 1 << se
+	}
+	// Channels must map to only one host interrupt
+	var hiMapped [nHostInts]bool
+	var hmr [(nHostInts + 3) / 4]uint32
+	for c, hi := range ic.chan2hint {
+		if hiMapped[c] {
+			return fmt.Errorf("host interrupt %d has multiple channels assigned", hi)
+		}
+		hmr[c/4] |= uint32(hi) << ((c % 4) * 8)
+		hiMapped[c] = true
+	}
+	// Interrupt config sane, so start programming hardware
 	p.ic = ic
 	// Disable global interrupts
 	p.wr(rGER, 0)
-	p.wr(rSIPR0, 0xFFFFFFFF)
-	p.wr(rSIPR1, 0xFFFFFFFF)
+	p.wr64(rSIPR0, 0xFFFFFFFFFFFFFFFF)
 	// Init the CMR (Channel Map Registers)
-	var seEnable uint64
-	var cmr [nSysEvents / 4]uint32
-	for se, c := range ic.sysev2chan {
-		cmr[se/4] |= uint32(c) << ((se % 4) * 8)
-		seEnable |= 1 << se
-	}
 	p.copy(cmr[:], rCMRBase)
 	// Init the HMR (Host Interrupt Map Registers)
-	var hier [nHostInts]bool
-	var hmr [(nHostInts + 3) / 4]uint32
-	for ch, h := range ic.chan2hint {
-		hmr[ch/4] |= uint32(h) << ((ch % 4) * 8)
-		hier[h] = true
-	}
 	p.copy(hmr[:], rHMRBase)
-	p.wr(rSITR0, 0)
-	p.wr(rSITR1, 0)
+	p.wr64(rSITR0, 0)
 	// Enable the system events that are used.
-	m0 := uint32(seEnable)
-	m1 := uint32(seEnable >> 32)
-	p.wr(rESR0, m0)
-	p.wr(rSECR0, m0)
-	p.wr(rESR1, m1)
-	p.wr(rSECR1, m1)
-	for i, hset := range hier {
+	p.wr64(rESR0, ic.evMask)
+	p.wr64(rSECR0, ic.evMask)
+	for i, hset := range hiMapped {
 		if hset {
 			p.wr(rHIEISR, uint32(i))
 		}
@@ -269,6 +272,21 @@ func (p *PRU) rd(offs uintptr) uint32 {
 // wr writes one 32 bit word to the shared memory area
 func (p *PRU) wr(offs uintptr, v uint32) {
 	atomic.StoreUint32((*uint32)(unsafe.Pointer(&p.mem[offs])), v)
+}
+
+// rd64 reads 2 32 bits words from successive addresses and combines them to a 64 bit value
+// The lower 32 bit of the 64 bit word is read from the first address
+func (p *PRU) rd64(offs uintptr) uint64 {
+	v := uint64(atomic.LoadUint32((*uint32)(unsafe.Pointer(&p.mem[offs]))))
+	v |= uint64(atomic.LoadUint32((*uint32)(unsafe.Pointer(&p.mem[offs + 4])))) << 32
+	return v
+}
+
+// rd64 writes a 64 bit value to 2 successive addresses
+// The lower 32 bits of the 64 bit word is written to the first address
+func (p *PRU) wr64(offs uintptr, v uint64) {
+	atomic.StoreUint32((*uint32)(unsafe.Pointer(&p.mem[offs])), uint32(v))
+	atomic.StoreUint32((*uint32)(unsafe.Pointer(&p.mem[offs + 4])), uint32(v >> 32))
 }
 
 // copy copies the 32 bit data to the shared memory area
