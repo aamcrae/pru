@@ -91,62 +91,122 @@ type PRU struct {
 	mem      []byte
 	version  int
 	units    [nUnits]*Unit
-	signals  [nSignals]*Signal
-	ic       *IntConfig
+	signals  []*os.File
+	events   [nEvents]*Event
+	sigMask  [nSignals]uint64 // System event mask for each signal
+    evMask   uint64 // Global mask for system events
 
 	// Exported fields
 	SharedRam []byte
 	Order     binary.ByteOrder
 }
 
-var pru PRU
+// Single instance of PRU.
+var pru *PRU
 
-// Open initialises the PRU subsystem, and configures the interrupt controller
-// with a default configuration.
-func Open() (*PRU, error) {
-	p := &pru
-	if p.mmapFile == nil {
-		var err error
-		p.memBase, err = readDriverValue(drvMemBase)
-		if err != nil {
-			return nil, err
+// Open initialises the PRU subsystem using the configuration provided.
+func Open(pc *Config) (*PRU, error) {
+	if pru != nil {
+		return nil, fmt.Errorf("Device already open; must close it first")
+	}
+	p = new(PRU)
+	// Validate config.
+	// All events must map to a host interrupt.
+	var cmr [nSysEvents / 4]uint32
+	for se, c := range pc.ev2chan {
+		cmr[se/4] |= uint32(c) << ((se % 4) * 8)
+		hi, ok := pc.chan2hint[c]
+		if !ok {
+			return fmt.Errorf("chan %d not mapped to host interrupt", c)
 		}
-		p.memSize, err = readDriverValue(drvMemSize)
-		if err != nil {
-			return nil, err
+		if hi >= 2 {
+			p.sigMask[hostInt2Signal(hi)] |= 1 << se
 		}
-		f, err := os.OpenFile(drvUIO0, os.O_RDWR|os.O_SYNC, 0660)
-		if err != nil {
-			return nil, err
+		p.evMask |= 1 << se
+	}
+	// Channels must map to only one host interrupt
+	var hiMapped [nHostInts]bool
+	var hmr [(nHostInts + 3) / 4]uint32
+	for c, hi := range pc.chan2hint {
+		if hiMapped[c] {
+			return fmt.Errorf("host interrupt %d has multiple channels assigned", hi)
 		}
-		p.mem, err = unix.Mmap(int(f.Fd()), 0, p.memSize, unix.PROT_READ|unix.PROT_WRITE, unix.MAP_SHARED)
-		if err != nil {
-			f.Close()
-			return nil, fmt.Errorf("%s: %v", drvUIO0, err)
-		}
-		// Determine PRU version (AM18xx or AM33xx)
-		vers := p.rd(rREVID)
-		switch vers {
-		case 0x00a9824e:
-			p.Order = binary.BigEndian
-			p.version = am33xx
-		case 0x4E82A900:
-			p.Order = binary.LittleEndian
-			p.version = am33xx
-		default:
-			f.Close()
-			return nil, fmt.Errorf("Unknown PRU version: 0x%08x", vers)
-		}
-		p.SharedRam = p.mem[am3xxSharedRam : am3xxSharedRam+am3xxSharedRamSize]
-		p.units[0] = newUnit(am3xxPru0Ram, am3xxPru0Iram, am3xxPru0Ctl)
-		p.units[1] = newUnit(am3xxPru1Ram, am3xxPru1Iram, am3xxPru1Ctl)
-		p.mmapFile = f
-		err = p.IntConfigure(DefaultIntConfig)
-		if err != nil {
-			f.Close()
-			return nil, err
+		hmr[c/4] |= uint32(hi) << ((c % 4) * 8)
+		hiMapped[c] = true
+	}
+	var err error
+	p.memBase, err = readDriverValue(drvMemBase)
+	if err != nil {
+		return nil, err
+	}
+	p.memSize, err = readDriverValue(drvMemSize)
+	if err != nil {
+		return nil, err
+	}
+	f, err := os.OpenFile(drvUIO0, os.O_RDWR|os.O_SYNC, 0660)
+	if err != nil {
+		return nil, err
+	}
+	p.mem, err = unix.Mmap(int(f.Fd()), 0, p.memSize, unix.PROT_READ|unix.PROT_WRITE, unix.MAP_SHARED)
+	if err != nil {
+		f.Close()
+		return nil, fmt.Errorf("%s: %v", drvUIO0, err)
+	}
+	// Determine PRU version (AM18xx or AM33xx)
+	vers := p.rd(rREVID)
+	switch vers {
+	case 0x00a9824e:
+		p.Order = binary.BigEndian
+		p.version = am33xx
+	case 0x4E82A900:
+		p.Order = binary.LittleEndian
+		p.version = am33xx
+	default:
+		f.Close()
+		return nil, fmt.Errorf("Unknown PRU version: 0x%08x", vers)
+	}
+	p.SharedRam = p.mem[am3xxSharedRam : am3xxSharedRam+am3xxSharedRamSize]
+	p.units[0] = newUnit(am3xxPru0Ram, am3xxPru0Iram, am3xxPru0Ctl)
+	p.units[1] = newUnit(am3xxPru1Ram, am3xxPru1Iram, am3xxPru1Ctl)
+	p.mmapFile = f
+	// Open signal devices for each enabled host interrupt (the first 2 are skipped).
+	for i := 0; i < nSignals; i++ {
+		if p.sigMask[i] != 0 {
+			f, err := os.OpenFile(fmt.Sprintf(drvUioBase, i), os.O_RDWR|os.O_SYNC, 0660)
+			if err != nil {
+				p.Close()
+				return nil, err
+			}
+			p.signals = append(p.signals, f)
+			go p.signalReader(f)
 		}
 	}
+	// For
+	for i := 0; i < nEvents; i++ {
+		if (p.evMask & (1 << i)) != 0 {
+			p.events[i] := newEvent()
+		}
+	}
+	// Start setting up hardware
+	// Disable global interrupts
+	p.wr(rGER, 0)
+	p.wr64(rSIPR0, 0xFFFFFFFFFFFFFFFF)
+	// Init the CMR (Channel Map Registers)
+	p.copy(cmr[:], rCMRBase)
+	// Init the HMR (Host Interrupt Map Registers)
+	p.copy(hmr[:], rHMRBase)
+	p.wr64(rSITR0, 0)
+	// Enable the system events that are used.
+	p.wr64(rESR0, ic.evMask)
+	p.wr64(rSECR0, ic.evMask)
+	for i, hset := range hiMapped {
+		if hset {
+			p.wr(rHIEISR, uint32(i))
+		}
+	}
+	// Re-enable interrupts globally.
+	p.wr(rGER, 1)
+	pru = p
 	return p, nil
 }
 
@@ -180,68 +240,35 @@ func (p *PRU) ClearEvent(se uint) {
 
 // IntConfigure applies the interrupt controller configuration to the PRU
 func (p *PRU) IntConfigure(ic *IntConfig) error {
-	// Init event mask for each host interrupt.
-	for i := range ic.hiMask {
-		ic.hiMask[i] = 0
-	}
-	ic.evMask = 0
-	// Validate interrupt config.
-	// All events must map to a host interrupt.
-	var cmr [nSysEvents / 4]uint32
-	for se, c := range ic.ev2chan {
-		cmr[se/4] |= uint32(c) << ((se % 4) * 8)
-		hi, ok := ic.chan2hint[c]
-		if !ok {
-			return fmt.Errorf("chan %d not mapped to host interrupt", c)
-		}
-		ic.hiMask[hi] |= 1 << se
-		ic.evMask |= 1 << se
-	}
-	// Channels must map to only one host interrupt
-	var hiMapped [nHostInts]bool
-	var hmr [(nHostInts + 3) / 4]uint32
-	for c, hi := range ic.chan2hint {
-		if hiMapped[c] {
-			return fmt.Errorf("host interrupt %d has multiple channels assigned", hi)
-		}
-		hmr[c/4] |= uint32(hi) << ((c % 4) * 8)
-		hiMapped[c] = true
-	}
-	// Interrupt config sane, so start programming hardware
-	p.ic = ic
-	// Disable global interrupts
-	p.wr(rGER, 0)
-	p.wr64(rSIPR0, 0xFFFFFFFFFFFFFFFF)
-	// Init the CMR (Channel Map Registers)
-	p.copy(cmr[:], rCMRBase)
-	// Init the HMR (Host Interrupt Map Registers)
-	p.copy(hmr[:], rHMRBase)
-	p.wr64(rSITR0, 0)
-	// Enable the system events that are used.
-	p.wr64(rESR0, ic.evMask)
-	p.wr64(rSECR0, ic.evMask)
-	for i, hset := range hiMapped {
-		if hset {
-			p.wr(rHIEISR, uint32(i))
-		}
-	}
-	// Re-enable interrupts globally.
-	p.wr(rGER, 1)
 	return nil
 }
 
 // Close deactivates the PRU subsystem, releasing all the resources associated with it.
 func (p *PRU) Close() {
-	if p.mmapFile != nil {
-		unix.Munmap(p.mem)
-		p.mmapFile.Close()
-		p.mmapFile = nil
-		p.units[0] = nil
-		p.units[1] = nil
-		for i, s := range p.signals {
-			if s != nil {
-				s.Close()
-				p.signals[i] = nil
+	pru = nil
+	for _, s := range p.signals {
+		s.Close()
+	}
+	for i, _ := range p.events
+	unix.Munmap(p.mem)
+	p.mmapFile.Close()
+}
+
+// signalReader polls the device and sends the 32 bit value
+// read from the device to the channel.
+func (p *PRU) signalReader(f *os.File) {
+	b := make([]byte, 4)
+	for {
+		n, err := f.Read(b)
+		if err != nil {
+			return
+		}
+		if n == 4 {
+			val := *(*int32)(unsafe.Pointer(&b[0]))
+			select {
+			case s.sigChan <- int(val):
+			default:
+				// Unable to send, maybe the channel is closed.
 			}
 		}
 	}
@@ -295,6 +322,11 @@ func (p *PRU) copy(src []uint32, dst uintptr) {
 		pru.wr(dst, c)
 		dst += 4
 	}
+}
+
+// hostInt2Signal - convert host interrupt index to signal index
+func hostInt2Signal(hi int) int {
+	return hi - 2
 }
 
 // readDriverValue opens and reads a string from a device file and decodes

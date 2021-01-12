@@ -15,21 +15,20 @@
 package pru
 
 const (
-	nSysEvents = 64
-	nHostInts  = 10
-	nChan      = 10
+	nSysEvents = 64 // Number of system events
+	nChan      = 10 // Number of interrupt channels
+	nHostInts  = 10 // Number of host interrupts
+	nSignals   = nHostInts - 2 // Number of host interrupts routed to CPU
 )
 
-// IntConfig contains the configuration mappings for the interrupt controller.
+// Config contains the configuration mappings for the PRU.
 // A configuration is initialised through config methods on this structure e.g:
-//   ic := NewIntConfig()
+//   ic := NewConfig()
 //   ic.Channel2Interrupt(2, 2).Event2Channel(16, 2)
-//   p.IntConfigure(ic)
-type IntConfig struct {
+//   p := pru.Open(ic)
+type Config struct {
 	ev2chan    map[byte]byte
 	chan2hint  map[byte]byte
-	hiMask     [nHostInts]uint64 // System event mask for each host interrupt
-    evMask     uint64 // Global mask for system events
 }
 
 // The default interrupt config.
