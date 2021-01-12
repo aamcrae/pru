@@ -374,5 +374,5 @@ func readDriverValue(s string) (int, error) {
 
 // Return the number of instruction cycles for the duration specified.
 func Ticks(d time.Duration) int {
-	return int(d.Nanoseconds() * 5)	// 200 MHz instruction rate
+	return int(d.Nanoseconds() / 5)	// 200 MHz instruction rate
 }
