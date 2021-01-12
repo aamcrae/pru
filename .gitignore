@@ -9,6 +9,7 @@ examples/event/event
 examples/handler/handler
 examples/multihandler/multihandler
 examples/counter/counter
+examples/dual/dual
 
 # Test binary, built with `go test -c`
 *.test
