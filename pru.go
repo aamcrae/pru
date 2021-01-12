@@ -77,6 +77,8 @@ const (
 	rSECR1   = 0x20284
 	rESR0    = 0x20300
 	rESR1    = 0x20304
+	rECR0    = 0x20380
+	rECR1    = 0x20384
 	rCMRBase = 0x20400
 	rHMRBase = 0x20800
 	rSIPR0   = 0x20D00
@@ -189,6 +191,10 @@ func Open(pc *Config) (*PRU, error) {
 	// Start setting up hardware
 	// Disable global interrupts
 	p.wr(rGER, 0)
+	// Clear any existing system events or interrupts.
+	p.wr64(rESR0, 0)
+	p.wr64(rECR0, 0xFFFFFFFFFFFFFFFF)
+	p.wr64(rSECR0, 0xFFFFFFFFFFFFFFFF)
 	p.wr64(rSIPR0, 0xFFFFFFFFFFFFFFFF)
 	// Init the CMR (Channel Map Registers)
 	p.copy(cmr[:], rCMRBase)
@@ -197,7 +203,6 @@ func Open(pc *Config) (*PRU, error) {
 	p.wr64(rSITR0, 0)
 	// Enable the system events that are used.
 	p.wr64(rESR0, p.evMask)
-	p.wr64(rSECR0, p.evMask)
 	for i, hset := range hiMapped {
 		if hset {
 			p.wr(rHIEISR, uint32(i))

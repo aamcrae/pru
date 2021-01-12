@@ -47,8 +47,7 @@ func init() {
 	// The default is to map the same channels to host interrupts, and
 	// map the first 10 of the PRU R31 interrupts to the channels.
 	DefaultConfig = NewConfig()
-	var i uint
-	for i = 0; i < nChannels; i++ {
+	for i := 0; i < nChannels; i++ {
 		DefaultConfig.Channel2Interrupt(i, i)
 		DefaultConfig.Event2Channel(i+16, i)
 	}
@@ -72,7 +71,7 @@ func (ic *Config) Clear() *Config {
 // interrupt channels. Multiple system events may be mapped to a single channel,
 // but the same system events should not be mapped to multiple channels.
 // Adding the mapping will enable the system event.
-func (ic *Config) Event2Channel(s, c uint) *Config {
+func (ic *Config) Event2Channel(s, c int) *Config {
 	ic.ev2chan[byte(s % nEvents)] = byte(c % nChannels)
 	return ic
 }
@@ -83,7 +82,7 @@ func (ic *Config) Event2Channel(s, c uint) *Config {
 // Multiple channels should not be mapped to a single host interrupt.
 // A channel to host interrupt mapping must be present for the host interrupt to
 // be enabled.
-func (ic *Config) Channel2Interrupt(c, h uint) *Config {
+func (ic *Config) Channel2Interrupt(c, h int) *Config {
 	ic.chan2hint[byte(c % nChannels)] = byte(h % nHostInts)
 	return ic
 }
