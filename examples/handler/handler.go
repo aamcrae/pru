@@ -21,8 +21,10 @@ import (
 	"github.com/aamcrae/pru"
 )
 
+const hostInt = 18
+
 func main() {
-	p, err := pru.Open()
+	p, err := pru.Open(pru.DefaultConfig)
 	if err != nil {
 		log.Fatalf("%s", err)
 	}
@@ -30,14 +32,14 @@ func main() {
 		log.Fatalf("%s", err)
 	}
 	u := p.Unit(0)
-	for i := 0; i < 8; i++ {
-		s, err := p.Signal(i)
+	for i := hostInt; i < hostInt + 8; i++ {
+		e := p.Event(i)
 		if err != nil {
 			log.Fatalf("%s", err)
 		}
-		s.SetHandler(func(id int) func(int) {
-			return func(v int) {
-				log.Printf("Handler for signal id %d, val = %d", id, v)
+		e.SetHandler(func(id int) func() {
+			return func() {
+				log.Printf("Handler for event id %d", id)
 			}
 		}(i))
 	}

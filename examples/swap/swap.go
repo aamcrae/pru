@@ -25,7 +25,7 @@ const W1 = 0xDEADBEEF
 const W2 = 0xCAFEF00D
 
 func main() {
-	p, err := pru.Open()
+	p, err := pru.Open(pru.DefaultConfig)
 	if err != nil {
 		log.Fatalf("%s", err)
 	}

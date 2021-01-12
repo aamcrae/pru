@@ -15,10 +15,10 @@
 package pru
 
 const (
-	nSysEvents = 64 // Number of system events
-	nChan      = 10 // Number of interrupt channels
-	nHostInts  = 10 // Number of host interrupts
-	nSignals   = nHostInts - 2 // Number of host interrupts routed to CPU
+	nEvents   = 64 // Number of system events
+	nChannels = 10 // Number of interrupt channels
+	nHostInts = 10 // Number of host interrupts
+	nSignals  = nHostInts - 2 // Number of host interrupts routed to CPU
 )
 
 // Config contains the configuration mappings for the PRU.
@@ -39,30 +39,30 @@ type Config struct {
 //
 // Before the PRU is opened, this may be modified
 // to overwrite the default configuration e.g
-// DefaultIntConfig.Clear().Event2Channel(16, 4).Channel2Interrupt(4, 4)
-var DefaultIntConfig *IntConfig
+// DefaultConfig.Clear().Event2Channel(16, 4).Channel2Interrupt(4, 4)
+var DefaultConfig *Config
 
 func init() {
 	// Init the default interrupt controller config.
 	// The default is to map the same channels to host interrupts, and
 	// map the first 10 of the PRU R31 interrupts to the channels.
-	DefaultIntConfig = NewIntConfig()
+	DefaultConfig = NewConfig()
 	var i uint
-	for i = 0; i < nChan; i++ {
-		DefaultIntConfig.Channel2Interrupt(i, i)
-		DefaultIntConfig.Event2Channel(i+16, i)
+	for i = 0; i < nChannels; i++ {
+		DefaultConfig.Channel2Interrupt(i, i)
+		DefaultConfig.Event2Channel(i+16, i)
 	}
 }
 
-// NewIntConfig creates an empty IntConfig.
-func NewIntConfig() *IntConfig {
-	ic := new(IntConfig)
+// NewConfig creates an empty Config.
+func NewConfig() *Config {
+	ic := new(Config)
 	ic.Clear()
 	return ic
 }
 
 // Clear resets the configuration
-func (ic *IntConfig) Clear() *IntConfig {
+func (ic *Config) Clear() *Config {
 	ic.ev2chan = make(map[byte]byte)
 	ic.chan2hint = make(map[byte]byte)
 	return ic
@@ -72,8 +72,8 @@ func (ic *IntConfig) Clear() *IntConfig {
 // interrupt channels. Multiple system events may be mapped to a single channel,
 // but the same system events should not be mapped to multiple channels.
 // Adding the mapping will enable the system event.
-func (ic *IntConfig) Event2Channel(s, c uint) *IntConfig {
-	ic.ev2chan[byte(s % nSysEvents)] = byte(c % nChan)
+func (ic *Config) Event2Channel(s, c uint) *Config {
+	ic.ev2chan[byte(s % nEvents)] = byte(c % nChannels)
 	return ic
 }
 
@@ -83,7 +83,7 @@ func (ic *IntConfig) Event2Channel(s, c uint) *IntConfig {
 // Multiple channels should not be mapped to a single host interrupt.
 // A channel to host interrupt mapping must be present for the host interrupt to
 // be enabled.
-func (ic *IntConfig) Channel2Interrupt(c, h uint) *IntConfig {
-	ic.chan2hint[byte(c % nChan)] = byte(h % nHostInts)
+func (ic *Config) Channel2Interrupt(c, h uint) *Config {
+	ic.chan2hint[byte(c % nChannels)] = byte(h % nHostInts)
 	return ic
 }

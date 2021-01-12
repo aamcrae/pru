@@ -16,16 +16,15 @@ package pru
 
 import (
 	"fmt"
-	"os"
 	"time"
-	"unsafe"
 )
 
 // Event handles waiting on or receiving system events.
 type Event struct {
 	handlerRegistered bool
 	evChan            chan bool
-	stopChan          chan bool
+	stopChan          chan chan bool
+	hostInt           uint32
 }
 
 // newEvent creates and initialises an Event structure.
@@ -47,7 +46,7 @@ func (e *Event) SetHandler(f func()) {
 }
 
 // ClearHandler removes any currently installed handler for this event
-func (e *Signal) ClearHandler() {
+func (e *Event) ClearHandler() {
 	if e.handlerRegistered {
 		// Create a channel to be used to signal when the handler has exited.
 		c := make(chan bool)
@@ -56,7 +55,7 @@ func (e *Signal) ClearHandler() {
 		// to indicate that the handler has exited.
 		<-c
 		close(e.stopChan)
-		s.handlerRegistered = false
+		e.handlerRegistered = false
 	}
 }
 
@@ -64,7 +63,7 @@ func (e *Signal) ClearHandler() {
 // This cannot be used if a handler has been installed on this event.
 func (e *Event) Wait() error {
 	if e.handlerRegistered {
-		return 0, fmt.Errorf("Handler registered, cannot use Wait")
+		return fmt.Errorf("Handler registered, cannot use Wait")
 	}
 	<-e.evChan
 	return nil
@@ -79,7 +78,7 @@ func (e *Event) Wait() error {
 //      // Timed out
 //  }
 func (e *Event) WaitTimeout(tout time.Duration) (bool, error) {
-	if s.handlerRegistered {
+	if e.handlerRegistered {
 		return false, fmt.Errorf("Handler registered, cannot use WaitTimeout")
 	}
 	ticker := time.NewTicker(tout)

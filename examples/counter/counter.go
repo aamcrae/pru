@@ -22,7 +22,7 @@ import (
 )
 
 func main() {
-	p, err := pru.Open()
+	p, err := pru.Open(pru.DefaultConfig)
 	if err != nil {
 		log.Fatalf("%s", err)
 	}

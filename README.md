@@ -22,16 +22,16 @@ import "github.com/aamcrae/pru"
 
 func main() {
 	// Open and init the PRU subsystem.
-	p, _ := pru.Open()
+	p, _ := pru.Open(pru.DefaultConfig)
 	// Get a reference to PRU core #0
 	u := p.Unit(0)
-	// Get a reference to interrupt device 0
-	s, _ := p.Signal(0)
+	// Get a reference to system event 18
+	e := p.Event(18)
 	// Run program on PRU 0.
 	u.RunFile("testprog.bin")
-	// Upon completion, the program will send a sys event that
-	// gets mapped to interrupt device 0.
-	s.Wait()
+	// Upon completion, the program will send sys event 18 that
+	// gets mapped to interrupt device 0, 
+	e.Wait()
 	p.Close()
 }
 ```
@@ -71,7 +71,7 @@ image data and storing it as a array:
 	u := p.Unit(0)
 	u.Run(prucode_img)
 ```
-## User-space Signal Handling
+## User-space Event Handling
 
 System events from a range of different sources may be used to trigger
 interrupts. There are 64 possible system events, each of which may be enabled or disabled, and
@@ -82,40 +82,41 @@ Whilst 10 host interrupts are available, the first 2 are reserved for sending in
 themselves. The next 8 host interrupts are used to deliver interrupts to the main CPU kernel drivers,
 which then make these available via the device interface to the user space applications.
 
-The [Signal](https://pkg.go.dev/github.com/aamcrae/pru#Signal)
-type is used to access and manage these interrupts via the device interface presented by the kernel drivers.
-A signal is delivered as an integer value, which is the running count of
-how many of these signals have been delivered (this is useful to determine if
-signals have been missed).
+When an event is received, the system event and host interrupts are cleared automatically so that
+new events can be received. Multiple system events may be mapped to the same interrupt channel (and thence
+to a host interrupt), so when a host interrupt is detected, the set of active system events mapped to that
+interrupt channel is retrieved, and a separate event is generated for each active system event.
+
+The [Event](https://pkg.go.dev/github.com/aamcrae/pru#Event)
+type is used to access and manage these events via the device interface presented by the kernel drivers.
 
 The two main ways of accessing the signals are:
  - Using the ```Wait``` or ```WaitTimeout``` methods to synchronously
-wait upon receiving an signals ([example](https://github.com/aamcrae/pru/blob/main/examples/event/event.go))
- - Registering an asynchronous handler that is invoked when an signals is received ([example](https://github.com/aamcrae/pru/blob/main/examples/handler/handler.go))
+wait upon receiving an event ([example](https://github.com/aamcrae/pru/blob/main/examples/event/event.go))
+ - Registering an asynchronous handler that is invoked when a event is received ([example](https://github.com/aamcrae/pru/blob/main/examples/handler/handler.go))
 
 These methods are mutually exclusive - it is not possible to install a handler, and also call ```Wait```
-on the same Signal.
+on the same Event.
 
 There are 8 devices ```/dev/uio[0-7]``` that are used to interface user-space to the 8 host interrupts that
 are available to the main CPU.
 
-## Interrupt Handling and Configuration
+## Configuration
 
 The [PRU Interrupt Controller](https://elinux.org/PRUSSv2_Interrupt_Controller) has a
 fairly complex arrangement that allows up to 64 separate system events to be mapped to
 up to 10 interrupt channels. These interrupt channels themselves are mapped to
 10 host interrupts.
 
-A custom interrupt configuration can be applied that configures the interrupt controller
+The configuration argument of the ```Open``` function configures the interrupt controller
 as desired. The configuration contains mappings of system events to interrupt channels, and
 interrupt channels to host interrupts. Mapping a system event will enable that system event
 in the interrupt controller, and mapping a channel to a host interrupt will enable that
 host interrupt.
 
-A default interrupt configuration is initially applied when the PRU is first opened,
-and this can be modified before the PRU is opened.
+A default interrupt configuration ```DefaultConfig``` is available.
 
-The default configuration consists of:
+The default configuration:
  - Assign system events 16 - 25 to interrupt channels 0 - 9
  - Assign interrupt channels 0 - 9 to the corresponding host interrupts 0 - 9
 

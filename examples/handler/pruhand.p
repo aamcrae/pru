@@ -22,6 +22,7 @@ Start:
   MOV r31.b0, (0x20|4)
   MOV r31.b0, (0x20|5)
   MOV r31.b0, (0x20|6)
+  MOV r31.b0, (0x20|7)
   MOV r31.b0, (0x20|8)
   MOV r31.b0, (0x20|9)
   HALT

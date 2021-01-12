@@ -45,6 +45,7 @@ const (
 
 // Unit represents one PRU (core) of the PRU-ICSS subsystem
 type Unit struct {
+	pru     *PRU
 	iram    uintptr
 	ctlBase uintptr
 
@@ -54,22 +55,23 @@ type Unit struct {
 }
 
 // newUnit initialises the unit's fields
-func newUnit(ram, iram, ctl uintptr) *Unit {
+func newUnit(p *PRU, ram, iram, ctl uintptr) *Unit {
 	u := new(Unit)
+	u.pru = p
 	u.ctlBase = ctl
-	u.Ram = pru.mem[ram : ram+am3xxRamSize]
+	u.Ram = p.mem[ram : ram+am3xxRamSize]
 	u.iram = iram
 	return u
 }
 
 // Reset resets the PRU
 func (u *Unit) Reset() {
-	pru.wr(u.ctlBase+c_CONTROL, 0)
+	u.pru.wr(u.ctlBase+c_CONTROL, 0)
 }
 
 // Disable disables the PRU
 func (u *Unit) Disable() {
-	pru.wr(u.ctlBase+c_CONTROL, ctl_RESET)
+	u.pru.wr(u.ctlBase+c_CONTROL, ctl_RESET)
 }
 
 // Enable enables the PRU core. If CycleCounter is true, the
@@ -87,20 +89,20 @@ func (u *Unit) EnableAt(addr uint) {
 	if u.CycleCounter {
 		c |= ctl_COUNTER_EN
 		// Clear cycle counter
-		pru.wr(u.ctlBase+c_CYCLE, 0)
+		u.pru.wr(u.ctlBase+c_CYCLE, 0)
 	}
-	pru.wr(u.ctlBase+c_CONTROL, c)
+	u.pru.wr(u.ctlBase+c_CONTROL, c)
 }
 
 // Counter returns the current cycle counter.
 // This is only valid if CycleCounter has been set true.
 func (u *Unit) Counter() uint32 {
-	return pru.rd(u.ctlBase + c_CYCLE)
+	return u.pru.rd(u.ctlBase + c_CYCLE)
 }
 
 // IsRunning returns true if the PRU is enabled and running.
 func (u *Unit) IsRunning() bool {
-	return (pru.rd(u.ctlBase+c_CONTROL) & ctl_RUNSTATE) != 0
+	return (u.pru.rd(u.ctlBase+c_CONTROL) & ctl_RUNSTATE) != 0
 }
 
 // Load and execute the program from the file specified.
@@ -123,7 +125,7 @@ func (u *Unit) RunFileAt(s string, addr uint) error {
 		return fmt.Errorf("length is not 32 bit aligned")
 	}
 	code := make([]uint32, fi.Size()/4)
-	err = binary.Read(f, pru.Order, code)
+	err = binary.Read(f, u.pru.Order, code)
 	if err != nil {
 		return err
 	}
@@ -143,7 +145,7 @@ func (u *Unit) RunAt(code []uint32, addr uint) error {
 	}
 	u.Disable()
 	// Copy to IRAM.
-	pru.copy(code, u.iram)
+	u.pru.copy(code, u.iram)
 	u.EnableAt(addr)
 	return nil
 }

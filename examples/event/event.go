@@ -21,23 +21,22 @@ import (
 	"github.com/aamcrae/pru"
 )
 
-const signal = 16
+const event = 16
 
 func main() {
-	p, err := pru.Open()
+	// Set up just one system event (pr1_pru_mst_intr[0]_intr_req) and map it to channel 2.
+	// Map channel 2 to host interrupt 2 (which appears on event device 0)
+	pc := pru.NewConfig()
+	pc.Channel2Interrupt(2, 2).Event2Channel(event, 2)
+	p, err := pru.Open(pc)
 	if err != nil {
 		log.Fatalf("%s", err)
 	}
-	// Set up just one system event (pr1_pru_mst_intr[0]_intr_req) and map it to channel 2.
-	// Map channel 2 to host interrupt 2 (which appears on event device 0)
-	ic := pru.NewIntConfig()
-	ic.Channel2Interrupt(2, 2).Event2Channel(signal, 2)
-	p.IntConfigure(ic)
 	if err != nil {
 		log.Fatalf("%s", err)
 	}
 	u := p.Unit(0)
-	s, err := p.Signal(0)
+	e := p.Event(event)
 	if err != nil {
 		log.Fatalf("%s", err)
 	}
@@ -45,21 +44,20 @@ func main() {
 	if err != nil {
 		log.Fatalf("%s", err)
 	}
-	signalWait(s)
-	p.ClearEvent(signal)
+	eventWait(e)
 	u.Enable()
-	signalWait(s)
+	eventWait(e)
 	p.Close()
 }
 
-func signalWait(s *pru.Signal) {
-	v, ok, err := s.WaitTimeout(time.Second)
+func eventWait(e *pru.Event) {
+	ok, err := e.WaitTimeout(time.Second)
 	if err != nil {
 		log.Fatalf("%s", err)
 	}
 	if !ok {
-		log.Printf("Signal timed out!")
+		log.Printf("Event timed out!")
 	} else {
-		log.Printf("Signal received, count: %d", v)
+		log.Printf("Event #%d received", event)
 	}
 }
