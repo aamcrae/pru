@@ -28,7 +28,7 @@ type Event struct {
 }
 
 // newEvent creates and initialises an Event structure.
-func newEvent() (*Event) {
+func newEvent() *Event {
 	ev := new(Event)
 	ev.evChan = make(chan bool, 50)
 	return ev

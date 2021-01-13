@@ -50,7 +50,7 @@ type Unit struct {
 	ctlBase uintptr
 
 	// Exported fields
-	Ram          []byte
+	Ram          ram
 	CycleCounter bool // Enable cycle counter
 }
 

@@ -15,9 +15,9 @@
 package pru
 
 const (
-	nEvents   = 64 // Number of system events
-	nChannels = 10 // Number of interrupt channels
-	nHostInts = 10 // Number of host interrupts
+	nEvents   = 64            // Number of system events
+	nChannels = 10            // Number of interrupt channels
+	nHostInts = 10            // Number of host interrupts
 	nSignals  = nHostInts - 2 // Number of host interrupts routed to CPU
 )
 
@@ -27,8 +27,8 @@ const (
 //   ic.Channel2Interrupt(2, 2).Event2Channel(16, 2)
 //   p := pru.Open(ic)
 type Config struct {
-	ev2chan    map[byte]byte
-	chan2hint  map[byte]byte
+	ev2chan   map[byte]byte
+	chan2hint map[byte]byte
 }
 
 // The default interrupt config.
@@ -72,7 +72,7 @@ func (ic *Config) Clear() *Config {
 // but the same system events should not be mapped to multiple channels.
 // Adding the mapping will enable the system event.
 func (ic *Config) Event2Channel(s, c int) *Config {
-	ic.ev2chan[byte(s % nEvents)] = byte(c % nChannels)
+	ic.ev2chan[byte(s%nEvents)] = byte(c % nChannels)
 	return ic
 }
 
@@ -83,6 +83,6 @@ func (ic *Config) Event2Channel(s, c int) *Config {
 // A channel to host interrupt mapping must be present for the host interrupt to
 // be enabled.
 func (ic *Config) Channel2Interrupt(c, h int) *Config {
-	ic.chan2hint[byte(c % nChannels)] = byte(h % nHostInts)
+	ic.chan2hint[byte(c%nChannels)] = byte(h % nHostInts)
 	return ic
 }

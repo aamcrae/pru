@@ -34,7 +34,7 @@ func main() {
 		log.Fatalf("%s", err)
 	}
 	u := p.Unit(0)
-	for i := hostInt; i < hostInt + 8; i++ {
+	for i := hostInt; i < hostInt+8; i++ {
 		e := p.Event(i)
 		if err != nil {
 			log.Fatalf("%s", err)

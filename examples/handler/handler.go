@@ -26,7 +26,7 @@ const hostInt = 18
 func main() {
 	pc := pru.NewConfig()
 	// Map all 8 system events to the same interrupt channel.
-	for i := hostInt; i < hostInt + 4; i++ {
+	for i := hostInt; i < hostInt+8; i++ {
 		pc.Event2Channel(i, 0)
 	}
 	// Map channel 0 to host interrupt 2
@@ -39,7 +39,7 @@ func main() {
 		log.Fatalf("%s", err)
 	}
 	u := p.Unit(0)
-	for i := hostInt; i < hostInt + 4; i++ {
+	for i := hostInt; i < hostInt+8; i++ {
 		e := p.Event(i)
 		if err != nil {
 			log.Fatalf("%s", err)

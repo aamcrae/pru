@@ -98,10 +98,10 @@ type PRU struct {
 	signals  []*os.File
 	events   [nEvents]*Event
 	sigMask  [nSignals]uint64 // System event mask for each signal
-    evMask   uint64 // Global mask for system events
+	evMask   uint64           // Global mask for system events
 
 	// Exported fields
-	SharedRam []byte
+	SharedRam ram
 	Order     binary.ByteOrder
 }
 
@@ -228,7 +228,7 @@ func (p *PRU) Event(id int) *Event {
 // SendEvent triggers a system event. Note that the system event
 // may not need to be part of the configuration.
 func (p *PRU) SendEvent(se uint) {
-	p.wr64(rSRSR0, 1 << se)
+	p.wr64(rSRSR0, 1<<se)
 }
 
 // ClearEvent resets the system event, and re-enables the associated host interrupt.
@@ -236,7 +236,7 @@ func (p *PRU) ClearEvent(se uint) error {
 	if p.events[se] == nil {
 		return fmt.Errorf("Event %d not configured", se)
 	}
-	p.wr64(rSECR0, 1 << se)
+	p.wr64(rSECR0, 1<<se)
 	// Re-enable the host interrupt
 	p.wr(rHIEISR, p.events[se].hostInt)
 	return nil
@@ -273,8 +273,8 @@ func (p *PRU) signalReader(hi int, mask uint64, f *os.File) {
 		if n == 4 {
 			// Signal has been received on this host interrupt device
 			events := mask & p.rd64(rSRSR0) // Get active system events
-			p.wr64(rSECR0, events) // Clear active system events
-			p.wr(rHIEISR, uint32(hi)) // Re-enable host interrupt
+			p.wr64(rSECR0, events)          // Clear active system events
+			p.wr(rHIEISR, uint32(hi))       // Re-enable host interrupt
 			for {
 				fs := 63 - bits.LeadingZeros64(events)
 				if fs < 0 {
@@ -323,7 +323,7 @@ func (p *PRU) wr(offs uintptr, v uint32) {
 // The lower 32 bit of the 64 bit word is read from the first address
 func (p *PRU) rd64(offs uintptr) uint64 {
 	v := uint64(atomic.LoadUint32((*uint32)(unsafe.Pointer(&p.mem[offs]))))
-	v |= uint64(atomic.LoadUint32((*uint32)(unsafe.Pointer(&p.mem[offs + 4])))) << 32
+	v |= uint64(atomic.LoadUint32((*uint32)(unsafe.Pointer(&p.mem[offs+4])))) << 32
 	return v
 }
 
@@ -331,7 +331,7 @@ func (p *PRU) rd64(offs uintptr) uint64 {
 // The lower 32 bits of the 64 bit word is written to the first address
 func (p *PRU) wr64(offs uintptr, v uint64) {
 	atomic.StoreUint32((*uint32)(unsafe.Pointer(&p.mem[offs])), uint32(v))
-	atomic.StoreUint32((*uint32)(unsafe.Pointer(&p.mem[offs + 4])), uint32(v >> 32))
+	atomic.StoreUint32((*uint32)(unsafe.Pointer(&p.mem[offs+4])), uint32(v>>32))
 }
 
 // copy copies the 32 bit data to the shared memory area
@@ -374,5 +374,10 @@ func readDriverValue(s string) (int, error) {
 
 // Return the number of instruction cycles for the duration specified.
 func Ticks(d time.Duration) int {
-	return int(d.Nanoseconds() / 5)	// 200 MHz instruction rate
+	return int(d.Nanoseconds() / 5) // 200 MHz instruction rate
+}
+
+// Duration converts instruction cycles to time.Duration
+func Duration(t int) time.Duration {
+	return time.Nanosecond * time.Duration(t) * 5
 }
