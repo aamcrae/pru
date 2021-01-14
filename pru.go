@@ -377,7 +377,12 @@ func Ticks(d time.Duration) int {
 	return int(d.Nanoseconds() / 5) // 200 MHz instruction rate
 }
 
+// Return the number of instruction cycles for the microseconds specified.
+func MicroSeconds2Ticks(m int) int {
+	return m * 200 // 200 MHz instruction rate
+}
+
 // Duration converts instruction cycles to time.Duration
-func Duration(t int) time.Duration {
-	return time.Nanosecond * time.Duration(t) * 5
+func Duration(ticks int) time.Duration {
+	return time.Nanosecond * time.Duration(ticks) * 5
 }
