@@ -59,7 +59,7 @@ func main() {
 	for _, v := range params {
 		binary.Write(r, p.Order, v)
 	}
-    log.Printf("Running PRU")
+	log.Printf("Running PRU")
 	err = u.RunFile("prugpio.bin")
 	if err != nil {
 		log.Fatalf("%s", err)

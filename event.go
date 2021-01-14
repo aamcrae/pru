@@ -16,6 +16,7 @@ package pru
 
 import (
 	"fmt"
+	"sync"
 	"time"
 )
 
@@ -23,7 +24,8 @@ import (
 type Event struct {
 	handlerRegistered bool
 	evChan            chan bool
-	stopChan          chan chan bool
+	stopChan          chan bool
+	wg                sync.WaitGroup
 	hostInt           uint32
 }
 
@@ -41,19 +43,16 @@ func (e *Event) SetHandler(f func()) {
 		e.ClearHandler()
 	}
 	e.handlerRegistered = true
-	e.stopChan = make(chan chan bool)
+	e.stopChan = make(chan bool)
+	e.wg.Add(1)
 	go e.dispatcher(f)
 }
 
 // ClearHandler removes any currently installed handler for this event
 func (e *Event) ClearHandler() {
 	if e.handlerRegistered {
-		// Create a channel to be used to signal when the handler has exited.
-		c := make(chan bool)
-		e.stopChan <- c
-		// Once the handler receives the stop channel, a value is signalled back
-		// to indicate that the handler has exited.
-		<-c
+		e.stopChan <- true
+		e.wg.Wait()
 		close(e.stopChan)
 		e.handlerRegistered = false
 	}
@@ -97,9 +96,8 @@ func (e *Event) WaitTimeout(tout time.Duration) (bool, error) {
 func (e *Event) dispatcher(f func()) {
 	for {
 		select {
-		case c := <-e.stopChan:
-			// Send a value back to signal that the handler has terminated.
-			c <- true
+		case <-e.stopChan:
+			e.wg.Done()
 			return
 		case v := <-e.evChan:
 			// Reading a closed channel will return false

@@ -23,7 +23,7 @@ type ram []byte
 
 // Open creates a type that can use a Reader/Writer interface to the
 // underlying byte array.
-func (base ram) Open() (*RamIO) {
+func (base ram) Open() *RamIO {
 	return &RamIO{Data: base, max: cap(base)}
 }
 
