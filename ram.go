@@ -23,19 +23,19 @@ type ram []byte
 
 // Open creates a type that can use a Reader/Writer interface to the
 // underlying byte array.
-func (base ram) Open() *ramIO {
-	return &ramIO{Data: base, max: cap(base)}
+func (base ram) Open() (*RamIO) {
+	return &RamIO{Data: base, max: cap(base)}
 }
 
-// ramIO implements various io interfaces, using an underlying byte array.
-type ramIO struct {
+// RamIO implements various io interfaces, using an underlying byte array.
+type RamIO struct {
 	Data    []byte
 	current int
 	max     int
 }
 
 // Write copies the byte slice into the RAM array
-func (r *ramIO) Write(p []byte) (int, error) {
+func (r *RamIO) Write(p []byte) (int, error) {
 	n := copy(r.Data[r.current:], p)
 	r.current += n
 	if n != len(p) {
@@ -45,7 +45,7 @@ func (r *ramIO) Write(p []byte) (int, error) {
 }
 
 // WriteAt copies the byte slice into the RAM array at the offset specified
-func (r *ramIO) WriteAt(p []byte, offs int64) (int, error) {
+func (r *RamIO) WriteAt(p []byte, offs int64) (int, error) {
 	if int(offs) >= r.max {
 		return 0, io.EOF
 	}
@@ -53,7 +53,7 @@ func (r *ramIO) WriteAt(p []byte, offs int64) (int, error) {
 	return r.Write(p)
 }
 
-func (r *ramIO) WriteByte(b byte) error {
+func (r *RamIO) WriteByte(b byte) error {
 	if r.current >= r.max {
 		return io.EOF
 	}
@@ -63,7 +63,7 @@ func (r *ramIO) WriteByte(b byte) error {
 }
 
 // Seek moves the offset
-func (r *ramIO) Seek(offs int64, whence int) (int64, error) {
+func (r *RamIO) Seek(offs int64, whence int) (int64, error) {
 	n := int(offs)
 	switch whence {
 	case io.SeekStart:
@@ -81,7 +81,7 @@ func (r *ramIO) Seek(offs int64, whence int) (int64, error) {
 	return int64(r.current), nil
 }
 
-func (r *ramIO) ReadByte() (byte, error) {
+func (r *RamIO) ReadByte() (byte, error) {
 	if r.current >= r.max {
 		return 0, io.EOF
 	}
@@ -90,7 +90,7 @@ func (r *ramIO) ReadByte() (byte, error) {
 	return b, nil
 }
 
-func (r *ramIO) Read(p []byte) (int, error) {
+func (r *RamIO) Read(p []byte) (int, error) {
 	n := copy(p, r.Data[r.current:])
 	r.current += n
 	if n != len(p) {
@@ -99,7 +99,7 @@ func (r *ramIO) Read(p []byte) (int, error) {
 	return n, nil
 }
 
-func (r *ramIO) ReadAt(p []byte, offs int64) (int, error) {
+func (r *RamIO) ReadAt(p []byte, offs int64) (int, error) {
 	if int(offs) >= r.max {
 		return 0, io.EOF
 	}

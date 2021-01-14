@@ -71,6 +71,91 @@ image data and storing it as a array:
 	u := p.Unit(0)
 	u.Run(prucode_img)
 ```
+## Accessing Shared Memory
+
+The host CPU can access the various RAM blocks on the PRU subsystem, such as the PRU unit 0 and 1 8KB RAM
+and the 12KB shared RAM. These RAM blocks are exported as byte slices (```[]byte```) initialised over the
+RAM block as a byte array.
+
+There are a number of ways that applications can access the shared memory as structured access.
+For ease of access, the package detects the byte endianess of the PRU subsystem and stores
+the order (as a ```binary/encoding Order```) in the PRU structure. This allows use of the ```binary/encoding```
+package:
+
+```
+	p := pru.Open()
+	u := p.Unit(0)
+	p.Order.PutUint32(u.Ram[0:], word1)
+	p.Order.PutUint32(u.Ram[4:], word2)
+	p.Order.PutUint16(u.Ram[offs:], word2)
+	...
+	v := p.Order.Uint32(u.Ram[20:])
+```
+
+Of course, since the RAM is presented as a byte slice, any method that
+uses a byte slice can work:
+
+```
+	f := os.Open("MyFile")
+	f.Read(u.Ram[0x100:0x1FF])
+	data := make([]byte, 0x200)
+	copy(data, p.SharedRam[0x400:])
+```
+
+A Reader/Writer interface is available by using the ```Open``` method on any of the shared RAM fields:
+
+```
+	p := pru.Open()
+	u := p.Unit(0)
+	ram := u.Ram.Open()
+	params := []interface{}{
+		uint32(event),
+		uint32(intrBit),
+		uint16(2000),
+		uint16(1000),
+		uint32(0xDEADBEEF),
+		uint32(in),
+		uint32(out),
+	}
+	for _, v := range params {
+		binary.Write(ram, p.Order, v)
+	}
+	...
+	ram.Seek(my_offset, io.SeekStart)
+	fmt.Fprintf(ram, "Config string %d, %d", c1, c2)
+	ram.WriteAt([]byte("A string to be written to PRU RAM"), 0x800)
+	ram.Seek(0, io.SeekStart)
+	b1 := ram.ReadByte()
+	b2 := ram.ReadByte()
+	...
+```
+
+A caveat is that the RAM is shared with the PRU, and Go does not have any explicit way
+of indicating to the compiler that the memory is shared, so potentially there are patterns
+of access where the compiler may optimise out accesses if care is not taken - the access may also
+be subject to reordering.
+
+If the memory access is done when the PRU units are disabled, then using the Reader/Writer interface or the
+```binary/encoding``` methods described above should be sufficient.
+
+For accesses that do rely on explicit ordering and reading or writing, it is recommended that the ```sync/ataomic```
+and ```unsafe``` packages are used to access the memory:
+
+```
+	p := pru.Open()
+	u := p.Unit(0)
+	shared_rx := (*uint32)(unsafe.Pointer(&u.Ram[rx_offs]))
+	shared_tx := (*uint32)(unsafe.Pointer(&u.Ram[tx_offs]))
+	// Load and run PRU program ...
+	for {
+		n := atomic.LoadUint32(shared_rx)
+		// process data from PRU
+		...
+		// Store word in PRU memory
+		atomic.StoreUint32(shared_tx, 0xDEADBEEF)
+	}
+```
+
 ## User-space Event Handling
 
 System events from a range of different sources may be used to trigger
