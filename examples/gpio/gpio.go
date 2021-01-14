@@ -28,11 +28,12 @@ const intr1 = 17
 const intr2 = 18
 const intrBit = 31
 
-var in = flag.Int("in", 14, "Input bit for GPIO")    // P8_16 input
+var in = flag.Int("in", 15, "Input bit for GPIO")    // P8_15 input
 var out = flag.Int("out", 15, "Output bit for GPIO") // P8_11 output
 var unit = flag.Int("pru", 0, "PRU unit to execute on")
 
 func main() {
+	flag.Parse()
 	// Set up just one system event (pr1_pru_mst_intr[0]_intr_req) and map it to channel 2.
 	// Map channel 2 to host interrupt 2 (which appears on event device 0)
 	pc := pru.NewConfig()
@@ -58,17 +59,10 @@ func main() {
 	for _, v := range params {
 		binary.Write(r, p.Order, v)
 	}
+    log.Printf("Running PRU")
 	err = u.RunFile("prugpio.bin")
 	if err != nil {
 		log.Fatalf("%s", err)
-	}
-	var d uint32
-	for {
-		n := p.Order.Uint32(u.Ram[12:])
-		if n != d {
-			fmt.Printf("R31 = 0x%08x\n", n)
-			d = n
-		}
 	}
 	fmt.Printf("Press Enter key to terminate\n")
 	fmt.Scanln()
