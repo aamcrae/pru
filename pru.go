@@ -253,10 +253,16 @@ func (p *PRU) ClearEvent(se uint) error {
 
 // Close deactivates the PRU subsystem, releasing all the resources associated with it.
 func (p *PRU) Close() {
+	for _, u := range p.units {
+		if u != nil {
+			u.Reset()
+		}
+	}
 	// Disable global interrupts
 	p.wr(rGER, 0)
-	p.wr64(rESR0, 0)
-	p.wr64(rSECR0, 0)
+	p.wr64(rESR0, p.rd64(rESR0) &^ p.evMask)
+	p.wr64(rSECR0, p.evMask)
+	p.wr(rGER, 1)
 	pru = nil
 	for _, s := range p.signals {
 		s.Close()
