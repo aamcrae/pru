@@ -193,15 +193,19 @@ fairly complex arrangement that allows up to 64 separate system events to be map
 up to 10 interrupt channels. These interrupt channels themselves are mapped to
 10 host interrupts.
 
-The configuration argument of the ```Open``` function configures the interrupt controller
-as desired. The configuration contains mappings of system events to interrupt channels, and
+The configuration argument of the ```Open``` function configures the controller
+as desired. The configuration contains a mask of PRU units to enable,
+mappings of system events to interrupt channels, and
 interrupt channels to host interrupts. Mapping a system event will enable that system event
 in the interrupt controller, and mapping a channel to a host interrupt will enable that
 host interrupt.
 
+At least one PRU core unit must be enabled in the configuration if PRU programs are to be executed.
+
 A default interrupt configuration ```DefaultConfig``` is available.
 
 The default configuration:
+ - Enables both PRU core units
  - Assign system events 16 - 25 to interrupt channels 0 - 9
  - Assign interrupt channels 0 - 9 to the corresponding host interrupts 0 - 9
 
@@ -210,6 +214,38 @@ driven via register R31 on the PRU cores.
 Host interrupts 0 and 1 are not routed to the ARM CPU, but instead are connected to PRU 0 and 1 respectively.
 Host interrupt 2 through 9 are connected to the kernel event devices 0 - 7 respectively (```/dev/uio0``` to ```/dev/uio7```)
 
+## Multiple Processes
+
+Multiple Linux processes may access the PRU subsystem concurrently if care is taken. The guidelines are
+fairly straighforward:
+ - Allocate and enable each PRU core unit to only one process - it may actually be the same process
+(indeed this is the default configuration), but it is not possible to share a single PRU core unit
+between multiple processes.
+ - Do not share interrupt channels or host interrupts between processes; each process must have
+a separate host interrupt allocated to that process so that events are delivered reliably to
+the process (internally, the events are delivered via reading the ```/dev/uio[0-7]``` device files,
+so realistically only 1 process at a time can access each device).
+
+When allowing multiple processes access the PRU concurrently, the configuration used in each process should
+reflect how the resources are allocated (i.e PRU core units, host interrupts etc.). For example:
+```
+  // Config for process 1
+  pc := pru.NewConfig()
+  // Run code on unit 0, events on host interrupt 4
+  pc.EnableUnit(0).Event2Channel(16, 4).Channel2Interrupt(4, 4) 
+  ...
+
+  // Config for process 2
+  pc := pru.NewConfig()
+  // Run code on unit 1
+  pc.EnableUnit(1).Event2Channel(17, 3).Channel2Interrupt(3, 3) 
+  ...
+
+  // Process 3 does not run any PRU code, but can send and receive system events
+  pc := pru.NewConfig()
+  pc..Event2Channel(18, 2).Event2Channel(20,2).Channel2Interrupt(2, 2) 
+  ...
+```
 ## Disclaimer
 
 This is not an officially supported Google product.

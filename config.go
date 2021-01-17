@@ -25,6 +25,7 @@ const (
 // Config contains the configuration mappings for the PRU.
 // A configuration is initialised through config methods on this structure e.g:
 //   ic := NewConfig()
+//   ic.EnableUnit(1)
 //   ic.Channel2Interrupt(2, 2).Event2Channel(16, 2)
 //   p := pru.Open(ic)
 type Config struct {
@@ -33,15 +34,16 @@ type Config struct {
 	chan2hint map[byte]byte
 }
 
-// The default interrupt config.
-// The default configuration is to map all the channels to the corresponding
-// host interrupts as 1:1, and map the first 10 of the PRU R31 interrupts
-// to the corresponding channels. The first 2 of the PRU R31 are PRU-PRU
-// interrupts, and the remaining 8 map to the 8 event devices.
+// The default config.
+// The default configuration is to enable both PRU cores, map all the channels
+// to the corresponding host interrupts as 1:1, and map the first 10 of the
+// PRU R31 interrupts to the corresponding channels.
+// The first 2 of the PRU R31 are PRU-PRU interrupts, and the remaining 8 map
+// to the 8 event devices.
 //
 // Before the PRU is opened, this may be modified
 // to overwrite the default configuration e.g
-// DefaultConfig.Clear().Event2Channel(16, 4).Channel2Interrupt(4, 4)
+// DefaultConfig.Clear().EnableUnit(0).Event2Channel(16, 4).Channel2Interrupt(4, 4)
 var DefaultConfig *Config
 
 func init() {
@@ -71,7 +73,7 @@ func (ic *Config) Clear() *Config {
 	return ic
 }
 
-// EnableUnit indicates that this unit will be used in this process
+// EnableUnit enables the PRU unit used in this process
 func (ic *Config) EnableUnit(u int) *Config {
 	ic.umask |= 1 << uint(u%nUnits)
 	return ic
