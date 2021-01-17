@@ -31,6 +31,8 @@ func main() {
 	}
 	// Map channel 0 to host interrupt 2
 	pc.Channel2Interrupt(0, 2)
+	// Enable unit 0
+	pc.EnableUnit(0)
 	p, err := pru.Open(pc)
 	if err != nil {
 		log.Fatalf("%s", err)

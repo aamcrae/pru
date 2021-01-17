@@ -114,34 +114,6 @@ func Open(pc *Config) (*PRU, error) {
 		return nil, fmt.Errorf("Device already open; must close it first")
 	}
 	p := new(PRU)
-	// Validate config.
-	// All events must map to a host interrupt.
-	var cmr [nEvents / 4]uint32
-	for se, c := range pc.ev2chan {
-		cmr[se/4] |= uint32(c) << ((se % 4) * 8)
-		hi, ok := pc.chan2hint[c]
-		if !ok {
-			return nil, fmt.Errorf("chan %d not mapped to host interrupt", c)
-		}
-		if hi >= 2 {
-			p.sigMask[hostInt2Signal(int(hi))] |= 1 << se
-		}
-		p.evMask |= 1 << se
-		ev := new(Event)
-		ev.evChan = make(chan bool, 50)
-		ev.hostInt = uint32(hi)
-		p.events[se] = ev
-	}
-	// Channels must map to only one host interrupt
-	var hiMapped [nHostInts]bool
-	var hmr [(nHostInts + 3) / 4]uint32
-	for c, hi := range pc.chan2hint {
-		if hiMapped[c] {
-			return nil, fmt.Errorf("host interrupt %d has multiple channels assigned", hi)
-		}
-		hmr[c/4] |= uint32(hi) << ((c % 4) * 8)
-		hiMapped[c] = true
-	}
 	var err error
 	p.memBase, err = readDriverValue(drvMemBase)
 	if err != nil {
@@ -174,8 +146,38 @@ func Open(pc *Config) (*PRU, error) {
 		return nil, fmt.Errorf("Unknown PRU version: 0x%08x", vers)
 	}
 	p.SharedRam = p.mem[am3xxSharedRam : am3xxSharedRam+am3xxSharedRamSize]
-	p.units[0] = newUnit(p, am3xxPru0Ram, am3xxPru0Iram, am3xxPru0Ctl)
-	p.units[1] = newUnit(p, am3xxPru1Ram, am3xxPru1Iram, am3xxPru1Ctl)
+	// Validate config.
+	// All events must map to a host interrupt.
+	var cmr [nEvents / 4]uint32
+	// Read current CMR data
+	p.read(rCMRBase, cmr[:])
+	for se, c := range pc.ev2chan {
+		cmr[se/4] |= uint32(c) << ((se % 4) * 8)
+		hi, ok := pc.chan2hint[c]
+		if !ok {
+			return nil, fmt.Errorf("chan %d not mapped to host interrupt", c)
+		}
+		if hi >= 2 {
+			p.sigMask[hostInt2Signal(int(hi))] |= 1 << se
+		}
+		p.evMask |= 1 << se
+		ev := new(Event)
+		ev.evChan = make(chan bool, 50)
+		ev.hostInt = uint32(hi)
+		p.events[se] = ev
+	}
+	// Channels must map to only one host interrupt
+	var hiMapped [nHostInts]bool
+	var hmr [(nHostInts + 3) / 4]uint32
+	// Read current HMR data
+	p.read(rHMRBase, hmr[:])
+	for c, hi := range pc.chan2hint {
+		if hiMapped[c] {
+			return nil, fmt.Errorf("host interrupt %d has multiple channels assigned", hi)
+		}
+		hmr[c/4] |= uint32(hi) << ((c % 4) * 8)
+		hiMapped[c] = true
+	}
 	p.mmapFile = f
 	// Open signal devices for each enabled host interrupt (the first 2 are skipped).
 	for i := 0; i < nSignals; i++ {
@@ -190,20 +192,27 @@ func Open(pc *Config) (*PRU, error) {
 		}
 	}
 	// Start setting up hardware
+	if (pc.umask & 1) != 0 {
+		p.units[0] = newUnit(p, am3xxPru0Ram, am3xxPru0Iram, am3xxPru0Ctl)
+	}
+	if (pc.umask & 2) != 0 {
+		p.units[1] = newUnit(p, am3xxPru1Ram, am3xxPru1Iram, am3xxPru1Ctl)
+	}
 	// Disable global interrupts
 	p.wr(rGER, 0)
 	// Clear any existing system events or interrupts.
-	p.wr64(rESR0, 0)
-	p.wr64(rECR0, 0xFFFFFFFFFFFFFFFF)
-	p.wr64(rSECR0, 0xFFFFFFFFFFFFFFFF)
+	esr := p.rd64(rESR0)
+	p.wr64(rESR0, esr&^p.evMask)
+	p.wr64(rECR0, p.evMask)
+	p.wr64(rSECR0, p.evMask)
 	p.wr64(rSIPR0, 0xFFFFFFFFFFFFFFFF)
-	// Init the CMR (Channel Map Registers)
-	p.copy(cmr[:], rCMRBase)
-	// Init the HMR (Host Interrupt Map Registers)
-	p.copy(hmr[:], rHMRBase)
+	// Update the CMR (Channel Map Registers)
+	p.write(cmr[:], rCMRBase)
+	// Update the HMR (Host Interrupt Map Registers)
+	p.write(hmr[:], rHMRBase)
 	p.wr64(rSITR0, 0)
 	// Enable the system events that are used.
-	p.wr64(rESR0, p.evMask)
+	p.wr64(rESR0, p.evMask|esr)
 	for i, hset := range hiMapped {
 		if hset {
 			p.wr(rHIEISR, uint32(i))
@@ -334,11 +343,19 @@ func (p *PRU) wr64(offs uintptr, v uint64) {
 	atomic.StoreUint32((*uint32)(unsafe.Pointer(&p.mem[offs+4])), uint32(v>>32))
 }
 
-// copy copies the 32 bit data to the shared memory area
-func (p *PRU) copy(src []uint32, dst uintptr) {
+// write copies the 32 bit data to the shared memory area
+func (p *PRU) write(src []uint32, dst uintptr) {
 	for _, c := range src {
 		p.wr(dst, c)
 		dst += 4
+	}
+}
+
+// read copies the shared memory area to the 32 bit slice
+func (p *PRU) read(src uintptr, dst []uint32) {
+	for i := range dst {
+		dst[i] = p.rd(src)
+		src += 4
 	}
 }
 

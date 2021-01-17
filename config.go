@@ -18,6 +18,7 @@ const (
 	nEvents   = 64            // Number of system events
 	nChannels = 10            // Number of interrupt channels
 	nHostInts = 10            // Number of host interrupts
+	nUnits    = 2             // Number of PRU cores
 	nSignals  = nHostInts - 2 // Number of host interrupts routed to CPU
 )
 
@@ -27,6 +28,7 @@ const (
 //   ic.Channel2Interrupt(2, 2).Event2Channel(16, 2)
 //   p := pru.Open(ic)
 type Config struct {
+	umask     int
 	ev2chan   map[byte]byte
 	chan2hint map[byte]byte
 }
@@ -47,6 +49,7 @@ func init() {
 	// The default is to map the same channels to host interrupts, and
 	// map the first 10 of the PRU R31 interrupts to the channels.
 	DefaultConfig = NewConfig()
+	DefaultConfig.EnableUnit(0).EnableUnit(1)
 	for i := 0; i < nChannels; i++ {
 		DefaultConfig.Channel2Interrupt(i, i)
 		DefaultConfig.Event2Channel(i+16, i)
@@ -62,8 +65,15 @@ func NewConfig() *Config {
 
 // Clear resets the configuration
 func (ic *Config) Clear() *Config {
+	ic.umask = 0
 	ic.ev2chan = make(map[byte]byte)
 	ic.chan2hint = make(map[byte]byte)
+	return ic
+}
+
+// EnableUnit indicates that this unit will be used in this process
+func (ic *Config) EnableUnit(u int) *Config {
+	ic.umask |= 1 << uint(u%nUnits)
 	return ic
 }
 

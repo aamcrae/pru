@@ -20,8 +20,6 @@ import (
 	"os"
 )
 
-const nUnits = 2
-
 const (
 	// Control registers offset
 	c_CONTROL   = 0x00
@@ -61,6 +59,7 @@ func newUnit(p *PRU, ram, iram, ctl uintptr) *Unit {
 	u.ctlBase = ctl
 	u.Ram = p.mem[ram : ram+am3xxRamSize]
 	u.iram = iram
+	u.Reset()
 	return u
 }
 
@@ -145,7 +144,7 @@ func (u *Unit) RunAt(code []uint32, addr uint) error {
 	}
 	u.Disable()
 	// Copy to IRAM.
-	u.pru.copy(code, u.iram)
+	u.pru.write(code, u.iram)
 	u.EnableAt(addr)
 	return nil
 }
