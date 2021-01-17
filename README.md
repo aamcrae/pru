@@ -246,6 +246,11 @@ reflect how the resources are allocated (i.e PRU core units, host interrupts etc
   pc..Event2Channel(18, 2).Event2Channel(20,2).Channel2Interrupt(2, 2) 
   ...
 ```
+
+There are no checks to detect if multiple processes are accessing the same resource - the most
+likely outcome is the processes treading on each other's control of PRU cores, event
+handling and other random behaviour.
+
 ## Disclaimer
 
 This is not an officially supported Google product.
