@@ -40,12 +40,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("%s", err)
 	}
-	err = u.RunFile("pruevent.bin")
+	err = u.LoadAndRunFile("pruevent.bin")
 	if err != nil {
 		log.Fatalf("%s", err)
 	}
 	eventWait(e)
-	u.Enable()
+	u.Run()
 	eventWait(e)
 	p.Close()
 }

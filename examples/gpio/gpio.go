@@ -61,7 +61,7 @@ func main() {
 		binary.Write(r, p.Order, v)
 	}
 	log.Printf("Running PRU")
-	err = u.RunFile("prugpio.bin")
+	err = u.LoadAndRunFile("prugpio.bin")
 	if err != nil {
 		log.Fatalf("%s", err)
 	}

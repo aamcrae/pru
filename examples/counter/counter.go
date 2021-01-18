@@ -28,7 +28,7 @@ func main() {
 	}
 	u := p.Unit(0)
 	u.CycleCounter = true
-	err = u.RunFile("prucounter.bin")
+	err = u.LoadAndRunFile("prucounter.bin")
 	if err != nil {
 		log.Fatalf("%s", err)
 	}

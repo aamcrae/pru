@@ -52,7 +52,7 @@ func main() {
 			}
 		}(i))
 	}
-	err = u.RunFile("pruhand.bin")
+	err = u.LoadAndRunFile("pruhand.bin")
 	if err != nil {
 		log.Fatalf("%s", err)
 	}

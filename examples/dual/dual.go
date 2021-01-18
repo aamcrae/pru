@@ -49,7 +49,7 @@ func runUnit(p *pru.PRU, u *pru.Unit, ev uint32, offs int, txt string) {
 	p.Order.PutUint32(u.Ram[8:], 16)
 	p.Order.PutUint32(u.Ram[12:], uint32(offs))
 	copy(u.Ram[16:], txt)
-	err := u.RunFile("prucode.bin")
+	err := u.LoadAndRunFile("prucode.bin")
 	if err != nil {
 		log.Fatalf("%s", err)
 	}

@@ -34,7 +34,7 @@ func main() {
 	log.Printf("RAM %p, size is %d, shared RAM size = %d", &u.Ram[0], len(u.Ram), len(p.SharedRam))
 	p.Order.PutUint32(u.Ram[0:], W1)
 	p.Order.PutUint32(u.Ram[4:], W2)
-	err = u.Run(prucode_img)
+	err = u.LoadAndRun(prucode_img)
 	if err != nil {
 		log.Fatalf("%s", err)
 	}

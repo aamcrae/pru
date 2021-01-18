@@ -75,15 +75,16 @@ func (u *Unit) Disable() {
 
 // Enable enables the PRU core. If CycleCounter is true, the
 // cycle counter for the PRU core is cleared and enabled.
-func (u *Unit) Enable() {
-	u.EnableAt(0)
+func (u *Unit) Run() {
+	u.RunAt(0)
 }
 
-// EnableAt enables the PRU core and sets the starting execution address.
+// RunAt enables the PRU core and sets the starting execution address.
 // The address is specified as the instruction word, not the byte offset i.e a value
 // of 10 will begin execution at the 10th instruction word (byte offset of 40 in the IRAM).
 // If CycleCounter is true, the cycle counter for the PRU core is cleared and enabled.
-func (u *Unit) EnableAt(addr uint) {
+func (u *Unit) RunAt(addr uint) {
+	u.Disable()
 	c := (uint32(addr) << 16) | ctl_ENABLE
 	if u.CycleCounter {
 		c |= ctl_COUNTER_EN
@@ -104,14 +105,27 @@ func (u *Unit) IsRunning() bool {
 	return (u.pru.rd(u.ctlBase+c_CONTROL) & ctl_RUNSTATE) != 0
 }
 
-// Load and execute the program from the file specified.
-func (u *Unit) RunFile(s string) error {
-	return u.RunFileAt(s, 0)
+// Load the program from the file specified.
+func (u *Unit) LoadFile(s string) error {
+	return u.LoadFileAt(s, 0)
 }
 
-// Load and execute the program from the file specified and begin
-// execution at the address specified.
-func (u *Unit) RunFileAt(s string, addr uint) error {
+// Load and execute the program from the file specified.
+func (u *Unit) LoadAndRunFile(s string) error {
+	return u.LoadAndRunFileAt(s, 0)
+}
+
+// Load and execute the program from the file specified.
+func (u *Unit) LoadAndRunFileAt(s string, addr uint) error {
+	err := u.LoadFileAt(s, addr)
+	if err == nil {
+		u.RunAt(addr)
+	}
+	return err
+}
+
+// Load the program from a file to the address specified.
+func (u *Unit) LoadFileAt(s string, addr uint) error {
 	f, err := os.Open(s)
 	if err != nil {
 		return err
@@ -128,23 +142,16 @@ func (u *Unit) RunFileAt(s string, addr uint) error {
 	if err != nil {
 		return err
 	}
-	return u.RunAt(code, addr)
+	return u.LoadAt(code, addr)
 }
 
-// Run loads the PRU code into the IRAM and enables the PRU.
-func (u *Unit) Run(code []uint32) error {
-	return u.RunAt(code, 0)
-}
-
-// Run loads the PRU code into the IRAM and enables the PRU to
-// begin execution at the address indicated.
-func (u *Unit) RunAt(code []uint32, addr uint) error {
+// LoadAt loads the PRU code into the IRAM.
+func (u *Unit) LoadAt(code []uint32, addr uint) error {
 	if len(code) > am3xxICount {
 		return fmt.Errorf("Program too large")
 	}
 	u.Disable()
 	// Copy to IRAM.
 	u.pru.write(code, u.iram)
-	u.EnableAt(addr)
 	return nil
 }
