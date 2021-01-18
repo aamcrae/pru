@@ -47,8 +47,7 @@ type Unit struct {
 	iram    uintptr
 	ctlBase uintptr
 
-	// Exported fields
-	Ram          ram
+	Ram          ram  // PRU unit data ram
 	CycleCounter bool // Enable cycle counter
 }
 
@@ -63,12 +62,12 @@ func newUnit(p *PRU, ram, iram, ctl uintptr) *Unit {
 	return u
 }
 
-// Reset resets the PRU
+// Reset resets the PRU unit
 func (u *Unit) Reset() {
 	u.pru.wr(u.ctlBase+c_CONTROL, 0)
 }
 
-// Disable disables the PRU
+// Disable disables this PRU unit
 func (u *Unit) Disable() {
 	u.pru.wr(u.ctlBase+c_CONTROL, ctl_RESET)
 }

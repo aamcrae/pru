@@ -54,6 +54,7 @@ const (
 	am3xxPru1Dbg   = 0x00024400
 	am3xxPru0Iram  = 0x00034000
 	am3xxPru1Iram  = 0x00038000
+
 	// Memory sizes
 	am3xxRamSize       = 8 * 1024
 	am3xxSharedRamSize = 12 * 1024
@@ -99,9 +100,8 @@ type PRU struct {
 	sigMask  [nSignals]uint64 // System event mask for each signal
 	evMask   uint64           // Global mask for system events
 
-	// Exported fields
-	SharedRam ram
-	Order     binary.ByteOrder
+	SharedRam ram              // Shared RAM byte array
+	Order     binary.ByteOrder // encoding/binary Order for reading/writing.
 }
 
 // Single instance of PRU.
@@ -201,7 +201,7 @@ func Open(pc *Config) (*PRU, error) {
 	p.wr(rGER, 0)
 	// Clear any existing system events or interrupts.
 	esr := p.rd64(rESR0)
-	p.wr64(rESR0, esr&^p.evMask)
+	p.wr64(rESR0, esr &^ p.evMask)
 	p.wr64(rECR0, p.evMask)
 	p.wr64(rSECR0, p.evMask)
 	p.wr64(rSIPR0, 0xFFFFFFFFFFFFFFFF)
@@ -276,12 +276,14 @@ func (p *PRU) Close() {
 	p.mmapFile.Close()
 }
 
-// signalReader polls the device, and sends events
+// signalReader polls the device, and signals events that are
+// associated with the device.
 func (p *PRU) signalReader(hi int, mask uint64, f *os.File) {
 	b := make([]byte, 4)
 	for {
 		n, err := f.Read(b)
 		if err != nil {
+			// Assume device has been closed.
 			return
 		}
 		if n == 4 {
@@ -290,6 +292,7 @@ func (p *PRU) signalReader(hi int, mask uint64, f *os.File) {
 			p.wr64(rSECR0, events)          // Clear active system events
 			p.wr(rHIEISR, uint32(hi))       // Re-enable host interrupt
 			for {
+				// Find the next event in the mask.
 				fs := 63 - bits.LeadingZeros64(events)
 				if fs < 0 {
 					break
