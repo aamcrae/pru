@@ -9,7 +9,7 @@ package, which contains reference docs for the PRU subsystem, as well as assembl
 If custom PRU programs are to be developed, install the ```pasm``` assembler from that package.
 
 [Examples](https://github.com/aamcrae/pru/tree/main/examples) are provided that demonstrate
-the API:
+the API, including:
  - [swap](https://github.com/aamcrae/pru/tree/main/examples/swap) - a simple program showing how to access
 the PRU RAM, and to load and run a simple program.
  - [event](https://github.com/aamcrae/pru/tree/main/examples/event) - a program demonstrating how to use the event processing.
@@ -213,6 +213,25 @@ The system events enabled are the events triggered via the PRU Event Interface M
 driven via register R31 on the PRU cores.
 Host interrupts 0 and 1 are not routed to the ARM CPU, but instead are connected to PRU 0 and 1 respectively.
 Host interrupt 2 through 9 are connected to the kernel event devices 0 - 7 respectively (```/dev/uio0``` to ```/dev/uio7```)
+
+## GPIO setup
+
+Considerable documentation is available on the [beaglebone](https://beagleboard.org/) web site
+about configuring the GPIO pins. The ```config-pin``` utility can be used to assign selected
+GPIO pins to internal PRU registers for easy access:
+```
+ # config-pin -l P8_11
+ Available modes for P8_11 are: default gpio gpio_pu gpio_pd eqep pruout
+ # config-pin P8_11 pruout
+ Current mode for P8_11 is:     pruout
+ # config-pin P8_42 pruin
+ Current mode for P8_42 is:     pruin
+```
+This will assign P8.11 to ```pr1_pru0_pru_r30_15```, which is allocated to bit 15 of PRU unit 0
+register 30 (a output GPIO), and P8.42 to ```pr1_pru1_pru_r30_5```, allocated to bit 5 of PRU unit 1
+register 31 (an input GPIO).
+
+Using a modified device tree will allow these allocations to be set at boot time.
 
 ## Multiple Processes
 
