@@ -29,9 +29,9 @@ pkg=`basename ${PWD}`
 if [ $# -eq 2 ]; then
   pkg=$2
 fi
-echo "Package will be $pkg"
 out="${1}_img.go"
 in="${1}.img"
+echo "Creating ${out} from ${in}, setting package to \"$pkg\""
 cat <<EOF > ${out}
 // This file is generated from $in by img2go.sh
 

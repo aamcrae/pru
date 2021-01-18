@@ -1,4 +1,5 @@
 // This file is generated from prucode.img by img2go.sh
+
 package main
 
 var prucode_img = []uint32{
