@@ -27,12 +27,14 @@ func main() {
 		log.Fatalf("%s", err)
 	}
 	u := p.Unit(0)
-	u.CycleCounter = true
+	p.Order.PutUint32(u.Ram[0:], 0x00022000) // PRU 0 control registers
+	p.Order.PutUint32(u.Ram[4:], 0) // Saved cycles value
+	p.Order.PutUint32(u.Ram[8:], 0) // Saved stalls value
 	err = u.LoadAndRunFile("prucounter.bin")
 	if err != nil {
 		log.Fatalf("%s", err)
 	}
 	time.Sleep(time.Second)
-	log.Printf("Counter is %d (201 expected)", u.Counter())
+	log.Printf("Cycles are %d (202 expected), stalls = %d", p.Order.Uint32(u.Ram[4:]), p.Order.Uint32(u.Ram[8:]))
 	p.Close()
 }

@@ -48,7 +48,6 @@ type Unit struct {
 	ctlBase uintptr
 
 	Ram          ram  // PRU unit data ram
-	CycleCounter bool // Enable cycle counter
 }
 
 // newUnit initialises the unit's fields
@@ -72,12 +71,6 @@ func (u *Unit) Disable() {
 	u.pru.wr(u.ctlBase+c_CONTROL, ctl_RESET)
 }
 
-// Counter returns the current cycle counter.
-// This is only valid if CycleCounter has been set true.
-func (u *Unit) Counter() uint32 {
-	return u.pru.rd(u.ctlBase + c_CYCLE)
-}
-
 // IsRunning returns true if the PRU is enabled and running.
 func (u *Unit) IsRunning() bool {
 	return (u.pru.rd(u.ctlBase+c_CONTROL) & ctl_RUNSTATE) != 0
@@ -90,7 +83,6 @@ func (u *Unit) Run() error {
 
 // RunAt enables the PRU core to begin execution at the specified byte address (which
 // must be 32 bit aligned so that it points to the start of an instruction).
-// If CycleCounter is true, the cycle counter for the PRU core is cleared and enabled.
 func (u *Unit) RunAt(addr uint) error {
 	if (addr % 4) != 0 {
 		return fmt.Errorf("start address is not 32 bit aligned")
@@ -100,13 +92,7 @@ func (u *Unit) RunAt(addr uint) error {
 	}
 	u.Disable()
 	// Upper 16 bits is instruction word address.
-	c := (uint32(addr) << (16-2)) | ctl_ENABLE
-	if u.CycleCounter {
-		c |= ctl_COUNTER_EN
-		// Clear cycle counter
-		u.pru.wr(u.ctlBase+c_CYCLE, 0)
-	}
-	u.pru.wr(u.ctlBase+c_CONTROL, c)
+	u.pru.wr(u.ctlBase+c_CONTROL, (uint32(addr) << (16-2)) | ctl_ENABLE)
 	return nil
 }
 // Load the program from a file to instruction address 0.
