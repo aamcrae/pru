@@ -73,9 +73,9 @@ func (ic *Config) Clear() *Config {
 	return ic
 }
 
-// EnableUnit enables the PRU unit used in this process
+// EnableUnit enables the use of a PRU core unit in this process.
 func (ic *Config) EnableUnit(u int) *Config {
-	ic.umask |= 1 << uint(u%nUnits)
+	ic.umask |= 1 << uint(u % nUnits)
 	return ic
 }
 
@@ -84,7 +84,7 @@ func (ic *Config) EnableUnit(u int) *Config {
 // but the same system events should not be mapped to multiple channels.
 // Adding the mapping will enable the system event.
 func (ic *Config) Event2Channel(s, c int) *Config {
-	ic.ev2chan[byte(s%nEvents)] = byte(c % nChannels)
+	ic.ev2chan[byte(s % nEvents)] = byte(c % nChannels)
 	return ic
 }
 
@@ -95,6 +95,6 @@ func (ic *Config) Event2Channel(s, c int) *Config {
 // A channel to host interrupt mapping must be present for the host interrupt to
 // be enabled.
 func (ic *Config) Channel2Interrupt(c, h int) *Config {
-	ic.chan2hint[byte(c%nChannels)] = byte(h % nHostInts)
+	ic.chan2hint[byte(c % nChannels)] = byte(h % nHostInts)
 	return ic
 }
