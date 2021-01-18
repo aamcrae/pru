@@ -73,27 +73,6 @@ func (u *Unit) Disable() {
 	u.pru.wr(u.ctlBase+c_CONTROL, ctl_RESET)
 }
 
-// Enable enables the PRU core. If CycleCounter is true, the
-// cycle counter for the PRU core is cleared and enabled.
-func (u *Unit) Run() {
-	u.RunAt(0)
-}
-
-// RunAt enables the PRU core and sets the starting execution address.
-// The address is specified as the instruction word, not the byte offset i.e a value
-// of 10 will begin execution at the 10th instruction word (byte offset of 40 in the IRAM).
-// If CycleCounter is true, the cycle counter for the PRU core is cleared and enabled.
-func (u *Unit) RunAt(addr uint) {
-	u.Disable()
-	c := (uint32(addr) << 16) | ctl_ENABLE
-	if u.CycleCounter {
-		c |= ctl_COUNTER_EN
-		// Clear cycle counter
-		u.pru.wr(u.ctlBase+c_CYCLE, 0)
-	}
-	u.pru.wr(u.ctlBase+c_CONTROL, c)
-}
-
 // Counter returns the current cycle counter.
 // This is only valid if CycleCounter has been set true.
 func (u *Unit) Counter() uint32 {
@@ -105,7 +84,33 @@ func (u *Unit) IsRunning() bool {
 	return (u.pru.rd(u.ctlBase+c_CONTROL) & ctl_RUNSTATE) != 0
 }
 
-// Load the program from the file specified.
+// Run enables the PRU core to run at address 0.
+func (u *Unit) Run() error {
+	return u.RunAt(0)
+}
+
+// RunAt enables the PRU core to begin execution at the specified byte address (which
+// must be 32 bit aligned so that it points to the start of an instruction).
+// If CycleCounter is true, the cycle counter for the PRU core is cleared and enabled.
+func (u *Unit) RunAt(addr uint) error {
+	if (addr % 4) != 0 {
+		return fmt.Errorf("start address is not 32 bit aligned")
+	}
+	if addr >= am3xxIRamSize {
+		return fmt.Errorf("start address out of range")
+	}
+	u.Disable()
+	// Upper 16 bits is instruction word address.
+	c := (uint32(addr) << (16-2)) | ctl_ENABLE
+	if u.CycleCounter {
+		c |= ctl_COUNTER_EN
+		// Clear cycle counter
+		u.pru.wr(u.ctlBase+c_CYCLE, 0)
+	}
+	u.pru.wr(u.ctlBase+c_CONTROL, c)
+	return nil
+}
+// Load the program from a file to instruction address 0.
 func (u *Unit) LoadFile(s string) error {
 	return u.LoadFileAt(s, 0)
 }
@@ -115,13 +120,27 @@ func (u *Unit) LoadAndRunFile(s string) error {
 	return u.LoadAndRunFileAt(s, 0)
 }
 
-// Load and execute the program from the file specified.
+// Load and execute the program 
+func (u *Unit) LoadAndRun(code []uint32) error {
+	return u.LoadAndRunAt(code, 0)
+}
+
+// Load and execute the program at the address specified.
+func (u *Unit) LoadAndRunAt(code []uint32, addr uint) error {
+	err := u.LoadAt(code, addr)
+	if err != nil {
+		return err
+	}
+	return u.RunAt(addr)
+}
+
+// Load and execute the program from a file at the address specified.
 func (u *Unit) LoadAndRunFileAt(s string, addr uint) error {
 	err := u.LoadFileAt(s, addr)
-	if err == nil {
-		u.RunAt(addr)
+	if err != nil {
+		return err
 	}
-	return err
+	return u.RunAt(addr)
 }
 
 // Load the program from a file to the address specified.
@@ -145,13 +164,14 @@ func (u *Unit) LoadFileAt(s string, addr uint) error {
 	return u.LoadAt(code, addr)
 }
 
-// LoadAt loads the PRU code into the IRAM.
+// LoadAt loads the PRU code into the IRAM at the specified byte address.
 func (u *Unit) LoadAt(code []uint32, addr uint) error {
-	if len(code) > am3xxICount {
+	if uint(len(code) * 4) + addr > am3xxIRamSize {
 		return fmt.Errorf("Program too large")
 	}
+	// Ensure unit is not running before writing IRAM.
 	u.Disable()
 	// Copy to IRAM.
-	u.pru.write(code, u.iram)
+	u.pru.write(code, u.iram + uintptr(addr))
 	return nil
 }

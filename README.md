@@ -28,7 +28,7 @@ func main() {
 	// Get a reference to system event 18
 	e := p.Event(18)
 	// Run program on PRU 0.
-	u.RunFile("testprog.bin")
+	u.LoadAndRunFile("testprog.bin")
 	// Upon completion, the program will send sys event 18 that
 	// gets mapped to interrupt device 0, 
 	e.Wait()
@@ -52,11 +52,11 @@ There is a number of ways of generating and storing these images:
   pasm -b prucode.p prucode
   # Output binary file is prucode.bin
 ```
-This file can then be loaded and run via the ```RunFile``` method:
+This file can then be loaded and run via the ```LoadAndRunFile``` method:
 ```
 	p := pru.Open()
 	u := p.Unit(0)
-	u.RunFile("prucode.bin")
+	u.LoadAndRunFile("prucode.bin")
 ```
  - The image data can be incorporated as part of the Go program itself by converting the
 image data and storing it as a array:
@@ -69,7 +69,7 @@ image data and storing it as a array:
 ```
 	p := pru.Open()
 	u := p.Unit(0)
-	u.Run(prucode_img)
+	u.LoadAndRun(prucode_img)
 ```
 ## Accessing Shared Memory
 

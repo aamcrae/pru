@@ -58,7 +58,6 @@ const (
 	am3xxRamSize       = 8 * 1024
 	am3xxSharedRamSize = 12 * 1024
 	am3xxIRamSize      = 8 * 1024
-	am3xxICount        = am3xxIRamSize / 4
 
 	// Interrupt controller register offsets
 	rREVID   = 0x20000
