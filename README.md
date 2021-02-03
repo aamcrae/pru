@@ -71,6 +71,14 @@ image data and storing it as a array:
 	u := p.Unit(0)
 	u.LoadAndRun(prucode_img)
 ```
+
+These commands can be embedded int the Go source so that the ```go generate``` command
+can be used to build the files e.g
+```
+...
+//go:generate pasm -b prucounter.p
+...
+```
 ## Accessing Shared Memory
 
 The host CPU can access the various RAM blocks on the PRU subsystem, such as the PRU unit 0 and 1 8KB RAM

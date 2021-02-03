@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:generate pasm -m prucode.p prucode
+//go:generate img2go.sh prucode main
+
 package main
 
 import (
