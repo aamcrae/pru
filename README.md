@@ -2,6 +2,14 @@
 Go library for accessing TI AM335x PRU (Programmable Real-time Unit), which is
 available on the BeagleBone Black.
 
+This library uses UIO to directly access the PRUs, which is only used on older kernels (<=4.19).
+
+Newer kernels use the [RemoteProc](https://software-dl.ti.com/processor-sdk-linux/esd/docs/08_00_00_21/linux/Foundational_Components/PRU-ICSS/Linux_Drivers/RemoteProc.html)
+framework for accessing and managing the PRUs.
+
+There is a [newer library](https://github.com/aamcrae/pru-rp)
+for Go that uses the RemoteProc framework.
+
 godoc for this package is [available](https://godoc.org/github.com/aamcrae/pru).
 
 This is based on the [beaglebone](https://beagleboard.org/black) [PRU](https://github.com/beagleboard/am335x_pru_package)
